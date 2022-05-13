@@ -1,0 +1,2 @@
+steps:
+- name: 'gcr.io/hfx-bike-ridership/hfx-bike-ridership'
