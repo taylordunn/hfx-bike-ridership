@@ -22,7 +22,7 @@ preprocess <- function(bike_data, weather_data) {
       )
     )
 
-  # These are series of dates that I consider anomalies due to a series of zeros
+  # These are dates that I consider anomalies due to a series of zeros
   south_park_2019_11 <- with(bike_data,
     (site_name == "South Park St") & (count_date < "2019-11-23")
   )

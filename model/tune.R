@@ -11,14 +11,15 @@ library(doParallel)
 cl <- makePSOCKcluster(n_cores - 1)
 registerDoParallel(cl)
 # This extra step makes sure the parallel workers have access to the
-#  `tidyr::replace_na()` function during pre-processing, which I use later on
-# See this issue: https://github.com/tidymodels/tune/issues/364
+#  `tidyr::replace_na()` function during pre-processing
 parallel::clusterExport(cl, c("replace_na"))
 
+# If necessary, setup GCP credentials
+#googleCloudRunner::cr_setup()
 
 # Read data ---------------------------------------------------
 
-bq_auth("hfx-bike-ridership.json", email = "t.dunn19@gmail.com")
+bq_auth(path = "service-account.json", email = "t.dunn19@gmail.com")
 
 # Define the project, dataset and a new table for this project
 project <- "hfx-bike-ridership"
@@ -45,9 +46,9 @@ bike_test <- testing(bike_split)
 
 # ... but once I'm done splitting the data, I want to order by site followed by
 #  date for two reasons:
-#  (1) `step_impute_roll()` looks for rows in a window
+#  (1) `step_impute_roll()` looks for rows in a window (ordered)
 #  (2) the `mase` metric compares predictions to the naive prediction, which
-#      is just the previous value
+#      uses the previous value
 bike_train <- bike_train %>% arrange(count_date, site_name)
 bike_test <- bike_test %>% arrange(count_date, site_name)
 
@@ -78,8 +79,7 @@ bike_recipe <-
   step_mutate_at(c(total_precipitation, snow_on_ground),
                  fn = ~ replace_na(., 0)) %>%
   # Use a rolling window to impute temperature
-  step_impute_roll(mean_temperature,
-                   statistic = mean, window = 15) %>%
+  step_impute_roll(mean_temperature, statistic = mean, window = 15) %>%
   step_zv(all_predictors())
 
 xgb_spec <- boost_tree(
