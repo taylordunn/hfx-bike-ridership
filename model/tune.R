@@ -138,11 +138,56 @@ bike_xgb_fit %>%
   augment(filter(bike_train, !is.na(mean_temperature))) %>%
   bike_metrics(truth = n_bikes, estimate = .pred)
 
+# Save --------------------------------------------------------------------
+
+#write_rds(bike_xgb_workflow_final, "model/bike-xgb-workflow.rds")
+write_rds(bike_xgb_fit, "model/bike-xgb-fit.rds")
+#write_rds(bike_xgb_train_metrics, "model/bike-xgb-train-metrics.rds")
+
+# Also save all the `n_bikes` values at each site and date for calculating
+#  the lagged values in predictions
+bike_data %>%
+  select(site_name, count_date, n_bikes) %>%
+  filter(!is.na(n_bikes)) %>%
+  write_rds("model/bike-counts.rds")
+
+# Vetiver -----------------------------------------------------------------
+
+library(vetiver)
+v <- vetiver_model(bike_xgb_fit, "bike_xgb_model")
+
+library(plumber)
+pr() %>%
+  vetiver_api(v) %>%
+  pr_run(port = 8080)
+
 
 # Plumber API -------------------------------------------------------------
 
-library(vetiver)
 library(pins)
+
+board <- board_register_gcloud(
+  bucket = " hfx-bike-ridership-model",
+  name = "gcloud_model_buckel", token = "service-account.json"
+)
+
+cars_lm <- lm(mpg ~ ., data = mtcars)
+
+v <- vetiver_model(cars_lm, "cars_linear")
+
+pin(head(mtcars), board = board)
+
+pin(
+  list(model = v$model, ptype = v$ptype,
+       required_pkgs = v$metadata$required_pkgs, name = v$model_name,
+       type = "rds", description = v$description,
+       metadata = v$metadata$user, versioned = v$versioned),
+  name = "cars_linear", board = board
+)
+
+vetiver_pin_write(board, v)
+
+
 
 tmp_plumber <- tempfile()
 b <- board_temp(versioned = TRUE)
@@ -161,8 +206,3 @@ vetiver_write_docker(v, tmp_plumber, #tempdir(),
                      port = 'as.numeric(Sys.getenv("PORT"))')
 
 
-# Save --------------------------------------------------------------------
-
-write_rds(bike_xgb_workflow_final, "model/bike_xgb_workflow.rds")
-write_rds(bike_xgb_fit, "model/bike_xgb_fit.rds")
-write_rds(bike_xgb_train_metrics, "model/bike_xgb_fit.rds")

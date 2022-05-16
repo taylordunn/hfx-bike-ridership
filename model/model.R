@@ -11,7 +11,7 @@ library(tidymodels)
 
 library(vetiver)
 library(pins)
-tmp_plumber <- tempfile()
+tmp_plumber <- "model/example-plumber.R"
 b <- board_temp(versioned = TRUE)
 cars_lm <- lm(mpg ~ ., data = mtcars)
 v <- vetiver_model(cars_lm, "cars_linear")
