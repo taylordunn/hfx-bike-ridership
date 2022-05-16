@@ -7,6 +7,7 @@
 library(bigrquery)
 library(tidyverse)
 library(httr)
+library(jsonlite)
 
 # Get bike counter data ---------------------------------------------------
 # See write-up here: https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/#getting-bicycle-count-data
@@ -27,19 +28,20 @@ get_bike_counts <- function(offset) {
 }
 
 n_records <- GET(paste0(hfx_bike_url, "&returnCountOnly=true")) %>%
-  content(as = "parsed") %>%
-  unlist(use.names = FALSE)
+  content(as = "text") %>%
+  fromJSON() %>%
+  as.numeric()
 
 message("Number of bike counter records to collect: ", n_records)
 bike_counts <- map_dfr(
-  seq(0, ceiling(as.numeric(n_records) / 2000)),
+  seq(0, ceiling(n_records / 2000)),
   ~ get_bike_counts(offset = .x * 2000)
 )
 
 bike_counts_daily <- bike_counts %>%
   # Timestamps are in Unix time (milliseconds since Jan 1, 1970)
   mutate(count_datetime = as.POSIXct(COUNT_DATETIME / 1000,
-                                 tz = "UTC", origin = "1970-01-01")) %>%
+                                     tz = "UTC", origin = "1970-01-01")) %>%
   group_by(site_name = SITE_NAME, count_date = as.Date(count_datetime)) %>%
   summarise(n_records = n(), n_bikes = sum(COUNTER_VALUE),
             .groups = "drop") %>%
@@ -52,7 +54,6 @@ bike_counts_daily <- bike_counts %>%
   mutate(n_bikes_lag_14 = lag(n_bikes, 14)) %>%
   ungroup() %>%
   arrange(count_date, site_name)
-
 
 # Get weather data --------------------------------------------------------
 # See write-up here: https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/#getting-weather-data
@@ -121,8 +122,8 @@ climate_report_daily <- climate_report_windsor %>%
 # Upload data -------------------------------------------------------------
 
 # Authorize to view and manage BigQuery projects
-bq_auth("/home/rstudio/hfx-bike-ridership.json", email = "t.dunn19@gmail.com")
-#bq_auth("hfx-bike-ridership.json", email = "t.dunn19@gmail.com")
+bq_auth("/home/rstudio/oauth-client.json", email = "t.dunn19@gmail.com")
+#bq_auth("oauth-client.json", email = "t.dunn19@gmail.com")
 
 # Define the project, dataset and a new table for this project
 project <- "hfx-bike-ridership"

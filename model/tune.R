@@ -19,7 +19,8 @@ parallel::clusterExport(cl, c("replace_na"))
 
 # Read data ---------------------------------------------------
 
-bq_auth(path = "service-account.json", email = "t.dunn19@gmail.com")
+#bq_auth(path = "service-account.json", email = "t.dunn19@gmail.com")
+bq_auth(path = "oauth-client.json", email = "t.dunn19@gmail.com")
 
 # Define the project, dataset and a new table for this project
 project <- "hfx-bike-ridership"
@@ -124,8 +125,7 @@ show_best(xgb_tune, "mase")
 
 bike_xgb_workflow_final <- finalize_workflow(
   bike_xgb_workflow,
-  #select_best(xgb_tune, metric = "mase")
-  select_best(xgb_tune, metric = "rmse")
+  select_best(xgb_tune, metric = "mase")
 )
 
 bike_xgb_fit <- bike_xgb_workflow_final %>%
@@ -137,6 +137,29 @@ bike_xgb_fit %>%
 bike_xgb_fit %>%
   augment(filter(bike_train, !is.na(mean_temperature))) %>%
   bike_metrics(truth = n_bikes, estimate = .pred)
+
+
+# Plumber API -------------------------------------------------------------
+
+library(vetiver)
+library(pins)
+
+tmp_plumber <- tempfile()
+b <- board_temp(versioned = TRUE)
+cars_lm <- lm(mpg ~ ., data = mtcars)
+v <- vetiver_model(cars_lm, "cars_linear")
+vetiver_pin_write(b, v)
+#> Creating new version '20220428T153651Z-88e0b'
+#> Writing to pin 'cars_linear'
+vetiver_write_plumber(b, "cars_linear", file = tmp_plumber)
+
+## default port
+vetiver_write_docker(v, tmp_plumber, tempdir())
+#> * Lockfile written to '/tmp/RtmpPkEsgU/renv.lock'.
+## port from env variable
+vetiver_write_docker(v, tmp_plumber, #tempdir(),
+                     port = 'as.numeric(Sys.getenv("PORT"))')
+
 
 # Save --------------------------------------------------------------------
 
