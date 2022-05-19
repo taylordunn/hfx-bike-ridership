@@ -69,7 +69,7 @@ splits_resamples <- tibble(
   resample_params = "lookback = 13, assess_stop = 1"
 )
 
-# Workflow ------------------------------------------------------------------
+# Features ------------------------------------------------------------------
 
 # Get Canadian holidays
 canada_holidays <-
@@ -92,8 +92,11 @@ bike_recipe <-
   step_mutate_at(c(total_precipitation, snow_on_ground),
                  fn = ~ replace_na(., 0)) %>%
   # Use a rolling window to impute temperature
-  step_impute_roll(mean_temperature, statistic = mean, window = 15) %>%
+  step_impute_roll(mean_temperature, statistic = mean, window = 31) %>%
   step_zv(all_predictors())
+
+
+# Model spec and workflow -----------------------------------------------------
 
 xgb_spec <- boost_tree(
   mtry = tune(), trees = tune(), min_n = tune(),
@@ -110,16 +113,17 @@ bike_xgb_workflow <- workflow() %>%
   add_recipe(bike_recipe) %>%
   add_model(xgb_spec)
 
-# Tune --------------------------------------------------------------------
-
-bike_metrics <- metric_set(rmse, mae, rsq, mase)
-
 bike_train_baked <- prep(bike_recipe) %>% bake(bike_train)
+
 xgb_grid <- grid_latin_hypercube(
   finalize(mtry(), select(bike_train_baked, -n_bikes)),
   trees(), min_n(), tree_depth(), learn_rate(),
   size = 100
 )
+
+# Tune --------------------------------------------------------------------
+
+bike_metrics <- metric_set(rmse, mae, rsq, mase)
 
 set.seed(944)
 tic()

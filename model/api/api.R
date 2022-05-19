@@ -15,7 +15,9 @@ bike_data <- bq_table_download(daily_counts_table)
 xgb_fit <- gcs_get_object("xgb-fit.rds", bucket = "hfx-bike-ridership-model",
                           parseFunction = gcs_parse_rds)
 
-#* Predict bike ridership in Halifax, NS
+#* @apiTitle Predict bike ridership in Halifax, NS
+#*
+#* @apiDescription This API serves predictions from an XGBoost model serving predictions of the daily number of bicyclists passing particular sites around Halifax, Nova Scotia. The API is hosted on Google Cloud Platform. For more information, check out the [source code](https://github.com/taylordunn/hfx-bike-ridership), my [post about the data](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/), and [my post about developing the model](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/).
 #*
 #* @param count_date:str The date in YYYY-MM-DD format.
 #* @param site_name:str The location of the bike counter. One of "Dartmouth Harbourfront Greenway", "Hollis St", "South Park St", "Vernon St", "Windsor St".
