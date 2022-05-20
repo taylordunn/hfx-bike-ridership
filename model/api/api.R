@@ -1,3 +1,8 @@
+#* @apiTitle Predict bike ridership in Halifax, NS
+#* @apiDescription This API serves predictions for the daily number of bicyclists passing particular sites around Halifax, Nova Scotia. For more information, check out the [source code](https://github.com/taylordunn/hfx-bike-ridership), my [post about the data](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/), and [my post about developing the model](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/).
+#* @apiContact list(name = "Taylor Dunn", url = "http://www.tdunn.ca", email = "t.dunn19@gmail.com")
+#* @apiVersion 1.0
+
 library(plumber)
 library(dplyr)
 library(tidymodels)
@@ -15,10 +20,6 @@ bike_data <- bq_table_download(daily_counts_table)
 xgb_fit <- gcs_get_object("xgb-fit.rds", bucket = "hfx-bike-ridership-model",
                           parseFunction = gcs_parse_rds)
 
-#* @apiTitle Predict bike ridership in Halifax, NS
-#*
-#* @apiDescription This API serves predictions from an XGBoost model serving predictions of the daily number of bicyclists passing particular sites around Halifax, Nova Scotia. The API is hosted on Google Cloud Platform. For more information, check out the [source code](https://github.com/taylordunn/hfx-bike-ridership), my [post about the data](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/), and [my post about developing the model](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/).
-#*
 #* @param count_date:str The date in YYYY-MM-DD format.
 #* @param site_name:str The location of the bike counter. One of "Dartmouth Harbourfront Greenway", "Hollis St", "South Park St", "Vernon St", "Windsor St".
 #* @param n_bikes_lag_14:int The number of bikes measured at the given `site_name` 14 days ago. If not provided, will attempt to impute with the actual value 14 days before `count_date`.
