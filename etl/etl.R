@@ -33,6 +33,7 @@ n_records <- GET(paste0(hfx_bike_url, "&returnCountOnly=true")) %>%
   as.numeric()
 
 message("Number of bike counter records to collect: ", n_records)
+message("Downloading bike counter data")
 bike_counts <- map_dfr(
   seq(0, ceiling(n_records / 2000)),
   ~ get_bike_counts(offset = .x * 2000)
@@ -80,6 +81,7 @@ get_daily_climate_report_year <- function(
 
 bike_count_years <- unique(format(bike_counts_daily$count_date, "%Y"))
 
+message("Downloading weather data")
 climate_report_windsor <-
   map2_dfr(
     "HALIFAX WINDSOR PARK", bike_count_years,
@@ -146,3 +148,5 @@ bq_table_upload(weather_table,
                 create_disposition = "CREATE_IF_NEEDED",
                 # If table exists, overwrite it
                 write_disposition = "WRITE_TRUNCATE")
+
+message("Finished ETL pipeline")

@@ -1,2 +1,0 @@
-n_data,n_train,n_test,min_date_train,max_date_train,min_date_test,max_date_test,prop,resamples,resample_params,timestamp
-2854,1997,857,2019-12-07,2021-11-23,2021-11-23,2022-05-13,0.7,sliding_period,"lookback = 13, assess_stop = 1",2022-05-17T01:51:15Z
