@@ -140,10 +140,10 @@ xgb_tune <- tune_grid(
 )
 toc()
 
-# Find the best hyperparameters by MASE
+# Choose the hyperparameters by MASE
 xgb_params <- select_best(xgb_tune, metric = "mase")
-# Also get all the metrics from the cross-validated tuning
-cv_metrics <- xgb_params %>%
+# Also get all the metrics on the training for the chosen parameters
+train_metrics <- xgb_params %>%
   left_join(
     collect_metrics(xgb_tune) %>%
       select(.metric, mean, n, std_err, .config),
@@ -166,7 +166,7 @@ model_tuned <- list(
   weather_data_updated = weather_data_updated,
   splits_resamples = splits_resamples,
   xgb_params = xgb_params,
-  cv_metrics = cv_metrics,
+  train_metrics = train_metrics,
   test_metrics = test_metrics,
   bike_xgb_fit = bike_xgb_fit
 )
@@ -198,7 +198,7 @@ bq_table_upload(params_table,
 
 # Model metrics
 xgb_metrics <- bind_rows(
-  train = cv_metrics %>%
+  train = train_metrics %>%
     select(metric = .metric, value = mean, n, std_err),
   test = test_metrics %>%
     select(metric = .metric, value = .estimate),

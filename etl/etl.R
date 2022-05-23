@@ -1,8 +1,8 @@
 # This script is meant to run in a Docker container.
 # It extracts bike counter data from the Halifax open data portal, and weather
 #  data from the government of Canada.
-# It authorizes access to BigQuery and then updates the `daily_counts` and
-#  `daily_report` tables.
+# It authorizes access to BigQuery and then updates the
+#  `bike_counts.daily_counts` and `weather.daily_report` tables.
 
 library(bigrquery)
 library(tidyverse)
@@ -56,6 +56,8 @@ bike_counts_daily <- bike_counts %>%
   ungroup() %>%
   arrange(count_date, site_name)
 
+message("Max bike counter date: ", max(bike_counts_daily$count_date))
+
 # Get weather data --------------------------------------------------------
 # See write-up here: https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/#getting-weather-data
 
@@ -108,7 +110,7 @@ climate_report_daily <- climate_report_windsor %>%
     snow_on_ground = SNOW_ON_GROUND,
     speed_max_gust = SPEED_MAX_GUST
   ) %>%
-  left_join(
+  full_join(
     climate_report_airport %>%
       transmute(
         report_date = as.POSIXct(LOCAL_DATE) %>% as.Date(),
@@ -121,11 +123,13 @@ climate_report_daily <- climate_report_windsor %>%
   ) %>%
   arrange(report_date)
 
+message("Max weather date: ", max(climate_report_daily$report_date))
+
 # Upload data -------------------------------------------------------------
 
 # Authorize to view and manage BigQuery projects
-bq_auth("/home/rstudio/oauth-client.json", email = "t.dunn19@gmail.com")
-#bq_auth("oauth-client.json", email = "t.dunn19@gmail.com")
+bq_auth("/home/rstudio/oauth-client.json",
+        email = "hfx-bike-ridership@hfx-bike-ridership.iam.gserviceaccount.com")
 
 # Define the project, dataset and a new table for this project
 project <- "hfx-bike-ridership"
@@ -136,7 +140,7 @@ weather_table <- bq_table(project, "weather", "daily_report")
 bq_table_upload(daily_counts_table,
                 value = bike_counts_daily,
                 fields = bike_counts_daily,
-                # If table doesn't exist, create if
+                # If table doesn't exist, create it
                 create_disposition = "CREATE_IF_NEEDED",
                 # If table exists, overwrite it
                 write_disposition = "WRITE_TRUNCATE")
@@ -144,9 +148,7 @@ bq_table_upload(daily_counts_table,
 bq_table_upload(weather_table,
                 value = climate_report_daily,
                 fields = climate_report_daily,
-                # If table doesn't exist, create if
                 create_disposition = "CREATE_IF_NEEDED",
-                # If table exists, overwrite it
                 write_disposition = "WRITE_TRUNCATE")
 
 message("Finished ETL pipeline")
