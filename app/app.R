@@ -3,13 +3,13 @@ library(shinydashboard)
 library(dplyr)
 library(tibble)
 library(ggplot2)
-library(tidymodels)
+#library(tidymodels)
 library(bigrquery)
 library(googleCloudStorageR)
 library(DT)
 library(gt)
 library(dunnr)
-source("preprocess.R")
+source("funcs.R")
 
 extrafont::loadfonts(device = "win", quiet = TRUE)
 theme_set(theme_td(base_size = 16))
@@ -35,53 +35,60 @@ if (FALSE) {
 }
 
 server <- function(input, output, session) {
-  # Import data and model ---------------------------------------------------
-  weather_data_raw <- reactive({readr::read_rds("weather-data.rds")})
-  bike_data_raw <- reactive({readr::read_rds("bike-data.rds")})
-  model <- reactive({readr::read_rds("xgb-fit.rds")})
-  model_preproc <- reactive({
-    prep(extract_preprocessor(model()$bike_xgb_fit))
-  })
+  # Import and process data ---------------------------------------------------
+  data <- reactiveValues()
+  min_date <- reactiveVal()
+  max_date <- reactiveVal()
 
-  bike_data <- reactive({
-    bike_data_raw() %>%
-      preprocess(weather_data_raw()) %>%
+  observe({
+    message("Reading data")
+
+    bike_data_raw <- readr::read_rds("bike-data.rds")
+    weather_data_raw <- readr::read_rds("weather-data.rds")
+
+    bike_data <- bike_data_raw %>%
+      preprocess_bike_data() %>%
+      # Only include the last 14 days
       filter(count_date >= max(count_date) - 13)
-  })
-  bike_data_future <- reactive({
-    bike_data() %>%
+    min_date(min(bike_data$count_date))
+    max_date(max(bike_data$count_date))
+    bike_data_future <- bike_data %>%
       transmute(
-        count_date = count_date + 14, site_name,
-        n_bikes_lag_14 = n_bikes,
-        mean_temperature = mean(bike_data()$mean_temperature),
-        speed_max_gust = round(mean(bike_data()$speed_max_gust, na.rm = TRUE)),
+        count_date = count_date + 14, site_name, n_bikes_lag_14 = n_bikes
+      )
+
+    weather_data <- weather_data_raw %>%
+      preprocess_weather_data() %>%
+      filter(report_date >= min(bike_data$count_date),
+             report_date <= max(bike_data$count_date))
+    weather_data_future <- weather_data %>%
+      transmute(
+        report_date = report_date + 14,
+        # Impute temperature and wind speed with the mean
+        mean_temperature = round(mean(weather_data$mean_temperature,
+                                      na.rm = TRUE), 1),
+        speed_max_gust = round(mean(weather_data$speed_max_gust,
+                                    na.rm = TRUE)),
+        # Impute precipitation and snow with zero
         total_precipitation = 0, snow_on_ground = 0
       )
+
+    data$bike <- bind_rows(bike_data, bike_data_future)
+    data$weather <- bind_rows(weather_data, weather_data_future)
   })
 
-  # bike_data_prepped <- reactive({
-  #   bake(model_preproc(),
-  #        bind_rows(bike_data(), bike_data_future()))
-  # })
-  # bike_data_preds <- reactive({
-  #
-  # })
-
-  weather_data <- reactive({
-    bind_rows(bike_data(), bike_data_future()) %>%
-      distinct(count_date, mean_temperature, speed_max_gust,
-               total_precipitation, snow_on_ground)
+  bike_weather_data <- reactive({
+    data$bike %>%
+      left_join(data$weather, by = c("count_date" = "report_date"))
   })
 
-  max_date <- reactive({max(bike_data()$count_date)})
-  min_date <- reactive({min(bike_data()$count_date)})
   scale_x <- reactive({
-    scale_x_date(NULL,
-                 limits = c(min_date() - 1, max_date() + 14),
+    scale_x_date(NULL, limits = c(min_date() - 1, max_date() + 14),
                  breaks = seq.Date(min_date() - 1, max_date() + 14, "7 days"),
                  date_labels = "%b %d")
   })
 
+  model <- reactive({readr::read_rds("xgb-fit.rds")})
 
   # Model info --------------------------------------------------------------
   output$model_info_1 <- renderText({
@@ -130,70 +137,25 @@ server <- function(input, output, session) {
       tab_options(column_labels.hidden = TRUE)
   })
 
-  # Bike predictions --------------------------------------------------------
-  output$n_bikes_plot <- renderPlot({
-    d <- bind_rows(bike_data(), bike_data_future())
-    augment(model()$bike_xgb_fit, d) %>%
-      ggplot(aes(x = count_date)) +
-      geom_line(aes(y = .pred), color = "black", size = 1) +
-      geom_vline(xintercept = max_date() + 0.5, lty = 2, size = 1) +
-      #geom_point(aes(y = n_bikes, color = site_name), size = 3) +
-      geom_point(aes(y = n_bikes, fill = site_name),
-                 color = "black", shape = 21, size = 4) +
-      facet_wrap(~ site_name, ncol = 1) +
-      expand_limits(y = 0) +
-      scale_x() +
-      labs(title = "Number of bikes vs date",
-           subtitle = "Coloured points show actual values, black lines are predictions") +
-      theme(legend.position = "none") +
-      dunnr::add_facet_borders()
-  })
 
   # Weather data ------------------------------------------------------------
   output$temperature_plot <- renderPlot({
-    weather_data() %>%
+    data$weather %>%
       filter(!is.na(mean_temperature)) %>%
-      ggplot(aes(x = count_date, y = mean_temperature)) +
+      ggplot(aes(x = report_date, y = mean_temperature)) +
       geom_point() +
       geom_vline(aes(xintercept = max_date()), lty = 2) +
       labs(y = "mean daily temperature (celsius)") +
       scale_x()
   })
-  output$wind_plot <- renderPlot({
-    weather_data() %>%
-      filter(!is.na(speed_max_gust)) %>%
-      ggplot(aes(x = count_date, y = speed_max_gust)) +
-      geom_point() +
-      geom_vline(aes(xintercept = max_date()), lty = 2) +
-      labs(y = "max wind gust (km/h)") +
-      scale_x()
-  })
-  output$precipitation_plot <- renderPlot({
-    weather_data() %>%
-      filter(!is.na(total_precipitation)) %>%
-      ggplot(aes(x = count_date, y = total_precipitation)) +
-      geom_point() +
-      geom_vline(aes(xintercept = max_date()), lty = 2) +
-      labs(y = "total precipitation (mm)") +
-      scale_x()
-  })
-  output$snow_plot <- renderPlot({
-    weather_data() %>%
-      filter(!is.na(snow_on_ground)) %>%
-      ggplot(aes(x = count_date, y = snow_on_ground)) +
-      geom_point() +
-      geom_vline(aes(xintercept = max_date()), lty = 2) +
-      labs(y = "snow_on_ground (cm)") +
-      scale_x()
-  })
 
   output$weather_table <- renderDataTable(
-    weather_data(),
+    data$weather,
     rownames = FALSE, escape = FALSE,
     colnames = c("Date", "Temperature<br>(celsius)",
                  "Precipitation<br>(mm)", "Snow<br>(cm)", "Max wind<br>(km/h)"),
-    editable = list(target = "cell", numeric = c(2, 3, 4, 5))
-    #options = list(pageLength = 5, dom = "t", autoWidth = TRUE)
+    editable = list(target = "cell", numeric = c(2, 3, 4, 5)),
+    options = list(pageLength = 7, dom = "tp")
   )
 }
 
@@ -214,19 +176,21 @@ ui <- dashboardPage(
     ),
     column(width = 5,
       box(width = 12,
-        plotOutput("n_bikes_plot", height = "800px")
+        #plotOutput("n_bikes_plot", height = "800px")
       )
     ),
-    column(width = 4,
-      box(width = 12, style='overflow-x: scroll;height:900px;overflow-y: scroll;',
-      #box(title = "Weather data", width = 12, height = "900px",
+    column(
+      width = 4,
+      box(
+        width = 12,
+        style = "overflow-x: scroll;height:900px;overflow-y: scroll;",
         plotOutput("temperature_plot", height = "100px"),
         dataTableOutput("weather_table")
         # plotOutput("wind_plot", height = "100px"),
         # plotOutput("precipitation_plot", height = "100px"),
         # plotOutput("snow_plot", height = "100px")
       )
-    ),
+    )
   )
 )
 
