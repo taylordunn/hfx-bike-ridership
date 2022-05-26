@@ -2,8 +2,9 @@ library(shiny)
 library(shinydashboard)
 library(dplyr)
 library(tibble)
+library(tidyr)
 library(ggplot2)
-#library(tidymodels)
+library(workflows)
 library(bigrquery)
 library(googleCloudStorageR)
 library(DT)
@@ -41,6 +42,9 @@ server <- function(input, output, session) {
   max_date <- reactiveVal()
 
   observe({
+    # Re-reads data every
+    invalidateLater(1e4)
+
     message("Reading data")
 
     bike_data_raw <- readr::read_rds("bike-data.rds")
@@ -81,14 +85,6 @@ server <- function(input, output, session) {
     data$bike %>%
       left_join(data$weather, by = c("count_date" = "report_date"))
   })
-
-  scale_x <- reactive({
-    scale_x_date(NULL, limits = c(min_date() - 1, max_date() + 14),
-                 breaks = seq.Date(min_date() - 1, max_date() + 14, "7 days"),
-                 date_labels = "%b %d")
-  })
-
-  model <- reactive({readr::read_rds("xgb-fit.rds")})
 
   # Model info --------------------------------------------------------------
   output$model_info_1 <- renderText({
@@ -137,26 +133,112 @@ server <- function(input, output, session) {
       tab_options(column_labels.hidden = TRUE)
   })
 
+  # Plotting helpers --------------------------------------------------------
+  scale_x <- reactive({
+    scale_x_date(NULL, limits = c(min_date() - 1, max_date() + 14),
+                 breaks = seq.Date(min_date() - 1, max_date() + 14, "7 days"),
+                 date_labels = "%b %d")
+  })
+  vline <- reactive({
+    geom_vline(xintercept = max_date() + 0.5, lty = 2, size = 1)
+  })
+
+  model <- reactive({readr::read_rds("xgb-fit.rds")})
+
+
+  # Bike predictions --------------------------------------------------------
+  output$n_bikes_plot <- renderPlot({
+    workflows:::augment.workflow(model()$bike_xgb_fit,
+                                 bike_weather_data()) %>%
+      ggplot(aes(x = count_date)) +
+      geom_line(aes(y = .pred), color = "black", size = 1) +
+      #geom_point(aes(y = n_bikes, color = site_name), size = 3) +
+      geom_point(aes(y = n_bikes, fill = site_name),
+                 color = "black", shape = 21, size = 4) +
+      vline() +
+      facet_wrap(~ site_name, ncol = 1) +
+      expand_limits(y = 0) +
+      scale_x() +
+      labs(title = "Number of bikes vs date",
+           subtitle = "Coloured points show actual values, black lines are predictions") +
+      theme(legend.position = "none") +
+      dunnr::add_facet_borders()
+  })
 
   # Weather data ------------------------------------------------------------
   output$temperature_plot <- renderPlot({
     data$weather %>%
       filter(!is.na(mean_temperature)) %>%
+      mutate(var = "Mean daily temperature (celsius)") %>%
       ggplot(aes(x = report_date, y = mean_temperature)) +
-      geom_point() +
-      geom_vline(aes(xintercept = max_date()), lty = 2) +
-      labs(y = "mean daily temperature (celsius)") +
+      geom_point(fill = td_colors$nice$light_coral, shape = 21, size = 4) +
+      vline() +
+      facet_wrap(~ var) +
+      labs(y = NULL,
+           title = "Weather vs date",
+           subtitle = "Use the table below to edit values for prediction") +
+      scale_x()
+  })
+  output$precipitation_plot <- renderPlot({
+    data$weather %>%
+      filter(!is.na(total_precipitation)) %>%
+      mutate(var = "Total daily precipitation (mm)") %>%
+      ggplot(aes(x = report_date, y = total_precipitation)) +
+      geom_col(fill = td_colors$nice$spanish_blue) +
+      vline() +
+      facet_wrap(~ var) +
+      expand_limits(y = 5) +
+      scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
       scale_x()
   })
 
+  output$snow_plot <- renderPlot({
+    data$weather %>%
+      filter(!is.na(snow_on_ground)) %>%
+      mutate(var = "Snow on ground (cm)") %>%
+      ggplot(aes(x = report_date, y = snow_on_ground)) +
+      geom_col(fill = td_colors$nice$charcoal) +
+      vline() +
+      facet_wrap(~ var) +
+      expand_limits(y = 5) +
+      scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
+      scale_x()
+  })
+  output$wind_plot <- renderPlot({
+    data$weather %>%
+      filter(!is.na(speed_max_gust)) %>%
+      mutate(var = "Maximum wind gust (km/h)") %>%
+      ggplot(aes(x = report_date, y = speed_max_gust)) +
+      geom_point(fill = td_colors$nice$emerald, shape = 21, size = 4) +
+      vline() +
+      facet_wrap(~ var) +
+      labs(y = NULL) +
+      scale_x()
+  })
+
+  output$weather_plot <- renderPlot({
+
+  })
+
   output$weather_table <- renderDataTable(
-    data$weather,
-    rownames = FALSE, escape = FALSE,
-    colnames = c("Date", "Temperature<br>(celsius)",
-                 "Precipitation<br>(mm)", "Snow<br>(cm)", "Max wind<br>(km/h)"),
-    editable = list(target = "cell", numeric = c(2, 3, 4, 5)),
-    options = list(pageLength = 7, dom = "tp")
+    datatable(
+      data$weather,
+      rownames = FALSE, escape = FALSE,
+      # colnames = c("Date", "Temperature<br>(celsius)",
+      #              "Precipitation<br>(mm)", "Snow<br>(cm)", "Max wind<br>(km/h)"),
+      colnames = c("Date", "Temp.", "Precip.", "Snow", "Wind"),
+      editable = list(target = "cell", numeric = c(2, 3, 4, 5)),
+      options = list(pageLength = 7, dom = "tp"),
+      caption = "Double click a cell to edit values. Plots and predictions will update automatically."
+    ) %>%
+      DT::formatStyle(names(data$weather), lineHeight = "80%")
   )
+
+  observeEvent(input$weather_table_cell_edit, {
+    row <- input$weather_table_cell_edit$row
+    col <- input$weather_table_cell_edit$col
+    data$weather[row, col + 1] <- input$weather_table_cell_edit$value
+  })
 }
 
 ui <- dashboardPage(
@@ -165,30 +247,34 @@ ui <- dashboardPage(
   dashboardSidebar(disable = TRUE),
   dashboardBody(
     column(width = 3,
-      box(title = "Info", width = 12,
+      box(
+        title = "Info", width = 12,
+        style = "overflow-x: scroll;height:900px;",
         uiOutput("model_info_1"),
-        img(src = "bike-counter-sites.png", align = "center",
-            style = "width: 300px; text-align: center;"),
+        img(src = "bike-counter-sites.png",
+            style = "width: 300px; display: block; margin-left: auto; margin-right: auto;"),
         #gt_output("model_timestamps"),
         uiOutput("model_info_2"),
         uiOutput("model_info_3")
       )
     ),
     column(width = 5,
-      box(width = 12,
-        #plotOutput("n_bikes_plot", height = "800px")
+      box(
+        width = 12,
+        style = "overflow-x: scroll;height:900px;",
+        plotOutput("n_bikes_plot", height = "800px")
       )
     ),
     column(
       width = 4,
       box(
         width = 12,
-        style = "overflow-x: scroll;height:900px;overflow-y: scroll;",
-        plotOutput("temperature_plot", height = "100px"),
+        style = "overflow-x: scroll;height:900px;",
+        plotOutput("temperature_plot", height = "150px"),
+        plotOutput("precipitation_plot", height = "150px"),
+        plotOutput("snow_plot", height = "150px"),
+        plotOutput("wind_plot", height = "150px"),
         dataTableOutput("weather_table")
-        # plotOutput("wind_plot", height = "100px"),
-        # plotOutput("precipitation_plot", height = "100px"),
-        # plotOutput("snow_plot", height = "100px")
       )
     )
   )
