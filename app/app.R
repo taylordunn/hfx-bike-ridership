@@ -1,54 +1,52 @@
 library(shiny)
 library(shinydashboard)
 library(dplyr)
-library(tibble)
+library(readr)
 library(tidyr)
 library(ggplot2)
+library(patchwork)
 library(workflows)
 library(bigrquery)
 library(googleCloudStorageR)
 library(DT)
-library(gt)
 library(dunnr)
 source("funcs.R")
 
-extrafont::loadfonts(device = "win", quiet = TRUE)
-theme_set(theme_td(base_size = 16))
+library(showtext)
+sysfonts::font_add_google("Roboto Condensed")
+showtext_auto()
+theme_set(theme_td(base_size = 14))
 set_geom_fonts()
 set_palette()
+
+# This option might help with figure resolution
+# library(Cairo)
+# options(shiny.usecairo = TRUE)
 
 project <- "hfx-bike-ridership"
 bq_auth(path = "oauth-client.json")
 gcs_auth("oauth-client.json")
 
-
-if (FALSE) {
-  daily_counts_table <- bq_table(project, "bike_counts", "daily_counts")
-  bike_data <- bq_table_download(daily_counts_table)
-
-  weather_table <- bq_table(project, "weather", "daily_report")
-  weather_data <- bq_table_download(weather_table)
-
-  xgb_fit <- gcs_get_object("xgb-fit.rds",
-                            bucket = "hfx-bike-ridership-model",
-                            parseFunction = gcs_parse_rds)
-} else {
-}
+bike_counts_table <- bq_table(project, "bike_counts", "daily_counts")
+weather_table <- bq_table(project, "weather", "daily_report")
 
 server <- function(input, output, session) {
-  # Import and process data ---------------------------------------------------
+  # Import data and model ---------------------------------------------------
   data <- reactiveValues()
   min_date <- reactiveVal()
   max_date <- reactiveVal()
+  model <- reactiveVal()
 
   observe({
-    # Re-reads data every
-    invalidateLater(1e4)
+    # Re-reads data every hour
+    invalidateLater(1000 * 60 * 60)
+    message("Reading data and model")
 
-    message("Reading data")
-
-    bike_data_raw <- readr::read_rds("bike-data.rds")
-    weather_data_raw <- readr::read_rds("weather-data.rds")
+    bike_data_raw <- bq_table_download(bike_counts_table)
+    weather_data_raw <- bq_table_download(weather_table)
+    model(gcs_get_object("xgb-fit.rds",
+                         bucket = "hfx-bike-ridership-model",
+                         parseFunction = gcs_parse_rds))
 
     bike_data <- bike_data_raw %>%
       preprocess_bike_data() %>%
@@ -90,9 +88,13 @@ server <- function(input, output, session) {
   output$model_info_1 <- renderText({
     HTML(
       paste(
-        "This Shiny app visualizes predictions of the daily number of bicyclists passing various bike counter sites around Halifax, Nova Scotia.",
-        "Check out the <a href='https://github.com/taylordunn/hfx-bike-ridership'>source code here</a>, and <a href='https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/'>this write-up</a> for more information.",
-        "The locations of the sites are overlaid on a map of Halifax below:",
+        "This Shiny app visualizes predictions of the daily number of bicyclists passing various bike counter sites around Halifax, Nova Scotia, in a four-week window.",
+        "Check out the <a href='https://github.com/taylordunn/hfx-bike-ridership'>source code here</a>, and <a href='https://tdunn.ca/posts/2022-05-19-predicting-bike-ridership-deploying-the-model/'>this write-up</a> for more information.",
+        paste0("<br>Data are updated, and the model is re-trained on a schedule: currently every Sunday at midnight AST, and sometimes manually by me. ",
+               "The current data go up to ",
+               "<b>", max_date(), "</b>",
+               " as indicated by the vertical dashed line in the plots."),
+        "<br>The locations of the sites are overlaid on a map of Halifax below:",
         sep = "<br>"
       )
     )
@@ -101,36 +103,17 @@ server <- function(input, output, session) {
   output$model_info_2 <- renderText({
     HTML(
       paste(
+        "<br>",
         "In addition to site, other features of the model are:",
         paste0("<ul>",
                "<li>date features: day of week, day of year, year, and Canadian holidays</li>",
                "<li>the number of bikes counted 14 days ago</li>",
                "<li>weather features: daily mean temperature, total precipitation, maximum gust speed, and snow on the ground",
                "</ul>"),
-        "See more information about the features and how missing data are handled <a href='https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/'>in this post</a>.",
+        "See more information about the features and how missing data are handled <a href='https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/'>in this post</a>.",
         "<br>"
       )
     )
-  })
-  output$model_info_3 <- renderText({
-    HTML(
-      paste(
-        paste0("The data and model are deployed and continuously updated on Google Cloud Platform. Currently this is scheduled for midnight on Sundays (and sometimes manually by myself). Most recently, the model was trained on data up to ",
-               "<b>", max_date(), "</b>",
-               " as indicated by the vertical dotted line in the plots.")
-      )
-    )
-  })
-
-  output$model_timestamps <- render_gt({
-    tribble(
-      ~ var, ~ val,
-      "Bike data updated", as.Date(model()$bike_data_updated),
-      "Weather data updated", as.Date(model()$weather_data_updated),
-      "Model trained", as.Date(model()$timestamp)
-    ) %>%
-      gt() %>%
-      tab_options(column_labels.hidden = TRUE)
   })
 
   # Plotting helpers --------------------------------------------------------
@@ -140,24 +123,21 @@ server <- function(input, output, session) {
                  date_labels = "%b %d")
   })
   vline <- reactive({
-    geom_vline(xintercept = max_date() + 0.5, lty = 2, size = 1)
+    geom_vline(xintercept = max_date(), lty = 2, size = 1)
   })
-
-  model <- reactive({readr::read_rds("xgb-fit.rds")})
-
 
   # Bike predictions --------------------------------------------------------
   output$n_bikes_plot <- renderPlot({
     workflows:::augment.workflow(model()$bike_xgb_fit,
                                  bike_weather_data()) %>%
       ggplot(aes(x = count_date)) +
+      vline() +
       geom_line(aes(y = .pred), color = "black", size = 1) +
-      #geom_point(aes(y = n_bikes, color = site_name), size = 3) +
       geom_point(aes(y = n_bikes, fill = site_name),
                  color = "black", shape = 21, size = 4) +
-      vline() +
       facet_wrap(~ site_name, ncol = 1) +
       expand_limits(y = 0) +
+      labs(y = NULL) +
       scale_x() +
       labs(title = "Number of bikes vs date",
            subtitle = "Coloured points show actual values, black lines are predictions") +
@@ -166,66 +146,74 @@ server <- function(input, output, session) {
   })
 
   # Weather data ------------------------------------------------------------
-  output$temperature_plot <- renderPlot({
+  temperature_plot <- reactive({
     data$weather %>%
       filter(!is.na(mean_temperature)) %>%
       mutate(var = "Mean daily temperature (celsius)") %>%
       ggplot(aes(x = report_date, y = mean_temperature)) +
-      geom_point(fill = td_colors$nice$light_coral, shape = 21, size = 4) +
       vline() +
+      geom_point(fill = td_colors$nice$strong_red, shape = 21, size = 4) +
       facet_wrap(~ var) +
       labs(y = NULL,
            title = "Weather vs date",
            subtitle = "Use the table below to edit values for prediction") +
-      scale_x()
+      scale_x() +
+      theme(axis.text.x = element_blank()) +
+      dunnr::add_facet_borders()
   })
-  output$precipitation_plot <- renderPlot({
+  precipitation_plot <- reactive({
     data$weather %>%
       filter(!is.na(total_precipitation)) %>%
       mutate(var = "Total daily precipitation (mm)") %>%
       ggplot(aes(x = report_date, y = total_precipitation)) +
-      geom_col(fill = td_colors$nice$spanish_blue) +
       vline() +
+      geom_col(fill = td_colors$nice$spanish_blue, color = "black") +
       facet_wrap(~ var) +
       expand_limits(y = 5) +
       scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
-      scale_x()
+      scale_x() +
+      theme(axis.text.x = element_blank()) +
+      dunnr::add_facet_borders()
   })
 
-  output$snow_plot <- renderPlot({
+  snow_plot <- reactive({
     data$weather %>%
       filter(!is.na(snow_on_ground)) %>%
       mutate(var = "Snow on ground (cm)") %>%
       ggplot(aes(x = report_date, y = snow_on_ground)) +
-      geom_col(fill = td_colors$nice$charcoal) +
       vline() +
+      geom_col(fill = td_colors$nice$charcoal, color = "black") +
       facet_wrap(~ var) +
       expand_limits(y = 5) +
       scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
-      scale_x()
+      scale_x() +
+      theme(axis.text.x = element_blank()) +
+      dunnr::add_facet_borders()
   })
-  output$wind_plot <- renderPlot({
+  wind_plot <- reactive({
     data$weather %>%
       filter(!is.na(speed_max_gust)) %>%
       mutate(var = "Maximum wind gust (km/h)") %>%
       ggplot(aes(x = report_date, y = speed_max_gust)) +
-      geom_point(fill = td_colors$nice$emerald, shape = 21, size = 4) +
       vline() +
+      geom_point(fill = td_colors$nice$emerald, shape = 21, size = 4) +
       facet_wrap(~ var) +
       labs(y = NULL) +
       scale_x()
   })
 
   output$weather_plot <- renderPlot({
-
+    temperature_plot() +
+      precipitation_plot() +
+      snow_plot() +
+      wind_plot() +
+      plot_layout(ncol = 1)
   })
 
   output$weather_table <- renderDataTable(
     datatable(
       data$weather,
       rownames = FALSE, escape = FALSE,
-      # colnames = c("Date", "Temperature<br>(celsius)",
-      #              "Precipitation<br>(mm)", "Snow<br>(cm)", "Max wind<br>(km/h)"),
       colnames = c("Date", "Temp.", "Precip.", "Snow", "Wind"),
       editable = list(target = "cell", numeric = c(2, 3, 4, 5)),
       options = list(pageLength = 7, dom = "tp"),
@@ -242,26 +230,32 @@ server <- function(input, output, session) {
 }
 
 ui <- dashboardPage(
+  skin = "yellow",
   dashboardHeader(title = "Predicting bike ridership in Halifax, NS",
-                  titleWidth = 700),
+                  titleWidth = 500),
   dashboardSidebar(disable = TRUE),
   dashboardBody(
-    column(width = 3,
+    tags$head(
+      tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
+    ),
+    fluidRow(
+    column(
+      width = 3,
       box(
-        title = "Info", width = 12,
-        style = "overflow-x: scroll;height:900px;",
+        title = HTML(paste0(as.character(icon("info")), " <b>Info</b>")),
+        width = 12,
+        style = "overflow-x: scroll;",
         uiOutput("model_info_1"),
         img(src = "bike-counter-sites.png",
             style = "width: 300px; display: block; margin-left: auto; margin-right: auto;"),
-        #gt_output("model_timestamps"),
-        uiOutput("model_info_2"),
-        uiOutput("model_info_3")
+        uiOutput("model_info_2")
       )
     ),
-    column(width = 5,
+    column(
+      width = 5,
       box(
         width = 12,
-        style = "overflow-x: scroll;height:900px;",
+        style = "overflow-x: scroll;",
         plotOutput("n_bikes_plot", height = "800px")
       )
     ),
@@ -269,14 +263,12 @@ ui <- dashboardPage(
       width = 4,
       box(
         width = 12,
-        style = "overflow-x: scroll;height:900px;",
-        plotOutput("temperature_plot", height = "150px"),
-        plotOutput("precipitation_plot", height = "150px"),
-        plotOutput("snow_plot", height = "150px"),
-        plotOutput("wind_plot", height = "150px"),
+        style = "overflow-x: scroll;",
+        plotOutput("weather_plot", height = "600px"),
         dataTableOutput("weather_table")
       )
     )
+  )
   )
 )
 
