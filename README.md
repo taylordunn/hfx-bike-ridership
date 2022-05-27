@@ -7,7 +7,8 @@
 This is an end-to-end machine learning project to predict daily bike
 ridership in Halifax, Nova Scotia, Canada.
 
-The model is deployed on Google Cloud Platform, and available as a [REST
+The model is deployed on Google Cloud Platform, and is available as a
+[REST
 API](https://hfx-bike-ridership-api-74govvz7xq-uc.a.run.app/__docs__/)
 and a [Shiny
 dashboard](https://hfx-bike-ridership-app-74govvz7xq-uc.a.run.app).
@@ -23,15 +24,11 @@ For more information, check out this series of posts on my website:
 
 ## Model tuning
 
-The ETL pipeline to extract the data, transform it, and load it into
-BigQuery, is currently scheduled to run on Sundays at midnight AST (or
-when I manually run it). New data in BigQuery triggers Cloud Run to
-automatically re-train the model.
-
-On the other hand, I decided to tune the XGBoost model locally instead
-of on GCP. Tuning on my PC takes upwards of 10 minutes, even when
-running in parallel on a 6 core processor, so this was in the interest
-of keeping the project (relatively) free and avoiding any [expensive
+Most of this project (including the ETL pipeline and model training) is
+automated, but I decided to tune the XGBoost model locally instead of on
+GCP. Tuning on my PC takes upwards of 10 minutes, even when running in
+parallel on a 6 core processor, so this was in the interest of keeping
+the project (relatively) free and avoiding any [expensive
 surprises](https://reddit.com/r/datascience/comments/tqe3y6/anyone_needs_ec2_instance/).
 
 The code and results of the tuning are in the `model/tune/` folder of
@@ -55,7 +52,7 @@ The final hyperparameters, chosen by lowest mean absolute scaled error
 | tree_depth | 13                  |
 | learn_rate | 0.00810337130082761 |
 
-And the performance on the training set resamples and the test set:
+And the performance on the training set resamples and the test set were:
 
 | data_set | metric |  value |   n | std_err |
 |:---------|:-------|-------:|----:|--------:|
