@@ -1,5 +1,5 @@
 #* @apiTitle Predict bike ridership in Halifax, NS
-#* @apiDescription This API serves predictions for the daily number of bicyclists passing particular sites around Halifax, Nova Scotia. For more information, check out the [source code](https://github.com/taylordunn/hfx-bike-ridership), my [post about the data](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/), and [my post about developing the model](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/).
+#* @apiDescription This API serves predictions for the daily number of bicyclists passing particular sites around Halifax, Nova Scotia. For more information, check out the [source code](https://github.com/taylordunn/hfx-bike-ridership) and [this write-up](https://tdunn.ca/posts/2022-05-19-predicting-bike-ridership-deploying-the-model/). You can also read more about [the data here](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/), and [the model development here](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/).
 #* @apiContact list(name = "Taylor Dunn", url = "http://www.tdunn.ca", email = "t.dunn19@gmail.com")
 #* @apiVersion 1.0
 
@@ -27,7 +27,7 @@ site_names <- c("Dartmouth Harbourfront Greenway", "Hollis St",
                 "South Park St", "Vernon St", "Windsor St")
 
 #* @param count_date:str The date in YYYY-MM-DD format.
-#* @param site_name:[str] The location of the bike counter. One of "Dartmouth Harbourfront Greenway", "Hollis St", "South Park St", "Vernon St", "Windsor St".
+#* @param site_name:[str] The location of the bike counter. One of "Dartmouth Harbourfront Greenway", "Hollis St", "South Park St", "Vernon St", "Windsor St". If not provided, will return predictions for all five sites.
 #* @param n_bikes_lag_14:[int] The number of bikes measured at the given `site_name` 14 days ago. If not provided, will attempt to impute with the actual value 14 days before `count_date`.
 #* @param mean_temperature:numeric The daily mean temperature. If not provided, will impute with the rolling mean.
 #* @param total_precipitation:numeric The daily amount of precipitation in mm. If not provided, will impute with zero.
@@ -49,8 +49,9 @@ function(count_date, site_name = NA_character_, n_bikes_lag_14 = NA_integer_,
 
   count_date <- as.Date(count_date)
 
-  # Get the 14-day lagged bike counts for each site
-  if (!is.na(n_bikes_lag_14) & length(site_name) != length(n_bikes_lag_14)) {
+  # Check if there is a user-supplied `n_bikes_lag_14` for each `site_name`
+  if (any(!is.na(n_bikes_lag_14)) &
+      length(site_name) != length(n_bikes_lag_14)) {
     return(list(
       status = 400,
       message = "Must provide a value of `n_bikes_lag_14` for every given `site_name`."
@@ -60,6 +61,7 @@ function(count_date, site_name = NA_character_, n_bikes_lag_14 = NA_integer_,
                 count_date_lag_14 = count_date - 14,
                 n_bikes_lag_14 = .env$n_bikes_lag_14)
 
+    # Otherwise, impute using the data
     if (sum(is.na(d$n_bikes_lag_14)) > 0) {
       message("Imputing `n_bikes_lag_14`")
       d <- d %>%
