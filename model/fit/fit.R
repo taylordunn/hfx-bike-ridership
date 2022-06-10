@@ -11,8 +11,8 @@ bq_auth(path = "oauth-client.json")
 gcs_auth("oauth-client.json")
 gcs_upload_set_limit(20000000L) # 20 Mb
 
-# This function will retrieve the latest data from BigQuery, the latest
-#  model from Cloud Storage, and
+# This function will retrieve the latest data from BigQuery, the trained
+#  model from GCS, and fit an XGBoost model, which is saved to GCS
 pub <- function(message) {
   # Define the project, dataset and a new table for this project
   project <- "hfx-bike-ridership"
