@@ -17,7 +17,7 @@ For more information, check out this series of posts on my website:
 
 1.  [Part 1: getting the
     data.](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/)
-2.  [Part 2: develping a
+2.  [Part 2: developing a
     model.](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/)
 3.  [Part 3: deploying the
     model.](https://tdunn.ca/posts/2022-05-19-predicting-bike-ridership-deploying-the-model/)
