@@ -1,0 +1,259 @@
+---
+title: "Predicting bike ridership in Halifax, Nova Scotia"
+author: "Taylor Dunn"
+format:
+  revealjs:
+    theme: "theme/theme.scss"
+    height: 1080
+    width: 1920
+    df-print: kable
+execute: 
+  echo: true
+  eval: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+#renv::use(lockfile = "../renv.lock")
+
+library(tidyverse)
+library(here)
+library(httr)
+library(gt)
+library(kableExtra)
+
+options(knitr.table.linesep = "")
+```
+
+## Packacges
+
+```{r}
+as.data.frame(installed.packages()[,c(1,3:4)])
+```
+
+
+
+## Background
+
+::: columns
+::: {.column width="50%"}
+
+![](images/cbc-article.PNG)
+
+:::
+
+:::{.column width="50%"}
+
+* Starting in 2020, the city made bike counter data available via their open data platform 
+
+![](images/pneumatic-tube-counter.png)
+
+![](images/bike-counter.jpg)
+
+
+:::
+:::
+
+::: {.notes}
+* In 2016, the city of Halifax installed its first bike counter to track cyclists
+:::
+
+## Background
+
+::: columns
+::: {.column width="50%"}
+
+![](images/halifax-open-data-logo.PNG){fig-align="center"}
+
+:::
+
+:::{.column width="50%"}
+
+:::
+:::
+
+::: {.notes}
+* In 2019, the city of Halifax installed its first bike counter to track cyclists
+:::
+
+## Motivation
+
+1. To work with data that was interesting to me
+2. To practice machine learning (and `tidymodels`)
+3. To learn how to deploy a model on Google Cloud
+
+
+## Motivation
+
+1. Getting and exploring the data
+2. Modeling
+3. Deployment
+
+
+## Getting the data
+
+```{r}
+#| eval: false
+#| echo: true
+query_url <- "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Bicycle_Counts/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=json"
+resp <- httr::GET(query_url)
+resp
+```
+
+```{r}
+#| echo: false
+resp <- read_rds(here("slides", "data", "resp-bikes.rds"))
+resp
+```
+
+## Getting the data
+
+```{r}
+parsed_content <- content(resp)
+str(parsed_content, max.level = 1)
+```
+
+. . .
+
+```{r}
+parsed_content$features[[1]] %>% str()
+```
+
+## Getting the data
+
+```{r}
+bike_counts <- map_dfr(
+  parsed_content$features,
+  ~ as_tibble(.x$attributes)
+)
+glimpse(bike_counts)
+```
+
+
+## Getting the data
+
+* `exceededTransferLimit = TRUE` tells us that 2000 records is the limit of a single API request.
+* How many total records are available?
+
+```{r}
+#| eval: false
+n_records <- httr::GET(paste0(query_url,
+                              "&returnCountOnly=true")) %>%
+  content(as = "parsed") %>%
+  unlist(use.names = FALSE)
+n_records
+```
+
+```{r}
+#| echo: false
+n_records <- read_rds(here("slides", "data", "n-records.rds"))
+n_records
+```
+
+## Getting the data
+
+* Write a function to get 2000 records at a time and iterate
+
+```{r}
+#| code-fold: true
+#| code-summary: get_bike_data()
+get_bike_data <- function(offset) {
+  # Need to prevent scientific notation, e.g. "1e+05" instead of "100000"
+  offset <- format(offset, scientific = FALSE)
+  
+  parsed_content <- httr::GET(paste0(query_url, "&resultOffset=", offset)) %>%
+    content(as = "parsed")
+  
+  map_dfr(
+    parsed_content$features,
+    ~ as_tibble(.x$attributes)
+  ) 
+}
+```
+
+```{r}
+#| eval: false
+#| code-line-numbers: "|5"
+bike_data <- map_dfr(
+  seq(0, ceiling(n_records / 2000)),
+  ~ get_bike_data(offset = .x * 2000)
+)
+bike_data <- janitor::clean_names(bike_data)
+glimpse(bike_data)
+```
+
+```{r}
+#| echo: false
+bike_data <- read_rds(here("slides", "data", "bike-data.rds"))
+bike_data <- janitor::clean_names(bike_data)
+
+glimpse(bike_data)
+```
+
+## Exploring the data
+
+```{r}
+#| echo: false
+#| label: bike-preprocessing
+bike_data <- bike_data %>%
+  mutate(
+    across(c(installation_date, count_datetime),
+           ~ as.POSIXct(.x / 1000, tz = "UTC", origin = "1970-01-01")),
+    # These are just dates, the time of day doesn't matter
+    installation_date = as.Date(installation_date),
+    # I'll also want the date without time of day
+    count_date = as.Date(count_datetime)
+  ) %>%
+  select(-serial_number, -counter_type)
+```
+
+```{r}
+bike_data %>% count(site_name, channel_name, name = "n_records")
+```
+
+. . .
+
+* 5 sites
+* 4 out of 5 have two "channels"
+* South Park St has the most recent
+
+## Exploring the data
+
+```{r}
+bike_data %>%
+  group_by(site_name, installation_date) %>%
+  summarise(min_count_date = min(count_date), max_count_date = max(count_date),
+            .groups = "drop")
+```
+
+## Test
+
+```{r}
+bike_data %>% count(site_name, channel_name, name = "n_records") %>%
+  knitr::kable()
+```
+
+## Test
+
+```{r}
+bike_data %>% count(site_name, channel_name, name = "n_records") %>%
+  knitr::kable(booktabs = TRUE)
+```
+
+## Test
+
+```{r}
+bike_data %>% count(site_name, channel_name, name = "n_records") %>%
+  knitr::kable()
+  #kableExtra::kable_styling()
+```
+
+
+## Test
+
+```{r}
+#| df-print: paged
+bike_data %>% count(site_name, channel_name, name = "n_records")
+```
+
