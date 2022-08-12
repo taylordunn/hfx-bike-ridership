@@ -377,6 +377,9 @@
       margin-right: 0; 
     }
   </style>
+  
+  <script src="hfx-bike-ridership_files/libs/kePrint-0.0.1/kePrint.js"></script>
+  <link href="hfx-bike-ridership_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
 </head>
 <body class="quarto-light">
   <div class="reveal">
@@ -387,10 +390,1332 @@
   <p class="author">Taylor Dunn</p>
 </section>
 
-<section id="packacges" class="slide level2">
-<h2>Packacges</h2>
+<section id="background" class="slide level2">
+<h2>Background</h2>
+<div class="columns">
+<div class="column" style="width:50%;">
+<p><img data-src="images/cbc-article.PNG"></p>
+</div><div class="column" style="width:50%;">
+<ul>
+<li>Starting in 2020, the city made bike counter data available via their open data platform</li>
+</ul>
+<p><img data-src="images/pneumatic-tube-counter.png"></p>
+<p><img data-src="images/bike-counter.jpg"></p>
+</div>
+</div>
+<aside class="notes">
+<ul>
+<li>In 2016, the city of Halifax installed its first bike counter to track cyclists</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="background-1" class="slide level2">
+<h2>Background</h2>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="images/halifax-open-data-logo.PNG"></p>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+
+</div>
+</div>
+<aside class="notes">
+<ul>
+<li>In 2019, the city of Halifax installed its first bike counter to track cyclists</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="motivation" class="slide level2">
+<h2>Motivation</h2>
+<ol type="1">
+<li>To work with data that was interesting to me</li>
+<li>To practice machine learning (and <code>tidymodels</code>)</li>
+<li>To learn how to deploy a model on Google Cloud</li>
+</ol>
+</section>
+<section id="motivation-1" class="slide level2">
+<h2>Motivation</h2>
+<ol type="1">
+<li>Getting and exploring the data</li>
+<li>Modeling</li>
+<li>Deployment</li>
+</ol>
+</section>
+<section id="getting-the-data" class="slide level2">
+<h2>Getting the data</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="fu">as.data.frame</span>(<span class="fu">installed.packages</span>()[,<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span><span class="sc">:</span><span class="dv">4</span>)])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a>query_url <span class="ot">&lt;-</span> <span class="st">"https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Bicycle_Counts/FeatureServer/0/query?where=1%3D1&amp;outFields=*&amp;outSR=4326&amp;f=json"</span></span>
+<span id="cb1-2"><a href="#cb1-2"></a>resp <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(query_url)</span>
+<span id="cb1-3"><a href="#cb1-3"></a>resp</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>Response [https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Bicycle_Counts/FeatureServer/0/query?where=1%3D1&amp;outFields=*&amp;outSR=4326&amp;f=json]
+  Date: 2022-04-27 03:26
+  Status: 200
+  Content-Type: application/json; charset=utf-8
+  Size: 579 kB</code></pre>
+</div>
+</div>
+</section>
+<section id="getting-the-data-1" class="slide level2">
+<h2>Getting the data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a>parsed_content <span class="ot">&lt;-</span> <span class="fu">content</span>(resp)</span>
+<span id="cb3-2"><a href="#cb3-2"></a><span class="fu">str</span>(parsed_content, <span class="at">max.level =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>List of 6
+ $ objectIdFieldName    : chr "ObjectId"
+ $ uniqueIdField        :List of 2
+ $ globalIdFieldName    : chr ""
+ $ fields               :List of 11
+ $ exceededTransferLimit: logi TRUE
+ $ features             :List of 2000</code></pre>
+</div>
+</div>
+<div class="fragment">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a>parsed_content<span class="sc">$</span>features[[<span class="dv">1</span>]] <span class="sc">%&gt;%</span> <span class="fu">str</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>List of 1
+ $ attributes:List of 11
+  ..$ CHANNEL_ID       : chr "100059339"
+  ..$ CHANNEL_NAME     : chr "Hollis St"
+  ..$ SERIAL_NUMBER    : chr "X2H20032465"
+  ..$ SITE_NAME        : chr "Hollis St"
+  ..$ LATITUDE         : num 44.6
+  ..$ LONGITUDE        : num -63.6
+  ..$ INSTALLATION_DATE: num 1.59e+12
+  ..$ COUNT_DATETIME   : num 1.6e+12
+  ..$ COUNTER_TYPE     : chr "Bicycle"
+  ..$ COUNTER_VALUE    : int 2
+  ..$ ObjectId         : int 1</code></pre>
+</div>
+</div>
+</div>
+</section>
+<section id="getting-the-data-2" class="slide level2">
+<h2>Getting the data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a>bike_counts <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
+<span id="cb7-2"><a href="#cb7-2"></a>  parsed_content<span class="sc">$</span>features,</span>
+<span id="cb7-3"><a href="#cb7-3"></a>  <span class="sc">~</span> <span class="fu">as_tibble</span>(.x<span class="sc">$</span>attributes)</span>
+<span id="cb7-4"><a href="#cb7-4"></a>)</span>
+<span id="cb7-5"><a href="#cb7-5"></a><span class="fu">glimpse</span>(bike_counts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rows: 2,000
+Columns: 11
+$ CHANNEL_ID        &lt;chr&gt; "100059339", "100059339", "100059339", "100059339", …
+$ CHANNEL_NAME      &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
+$ SERIAL_NUMBER     &lt;chr&gt; "X2H20032465", "X2H20032465", "X2H20032465", "X2H200…
+$ SITE_NAME         &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
+$ LATITUDE          &lt;dbl&gt; 44.64799, 44.64799, 44.64799, 44.64799, 44.64799, 44…
+$ LONGITUDE         &lt;dbl&gt; -63.57352, -63.57352, -63.57352, -63.57352, -63.5735…
+$ INSTALLATION_DATE &lt;dbl&gt; 1.594166e+12, 1.594166e+12, 1.594166e+12, 1.594166e+…
+$ COUNT_DATETIME    &lt;dbl&gt; 1.595966e+12, 1.595970e+12, 1.595974e+12, 1.595977e+…
+$ COUNTER_TYPE      &lt;chr&gt; "Bicycle", "Bicycle", "Bicycle", "Bicycle", "Bicycle…
+$ COUNTER_VALUE     &lt;int&gt; 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 6, 4, 13, 8, 5, 6, 8, …
+$ ObjectId          &lt;int&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1…</code></pre>
+</div>
+</div>
+</section>
+<section id="getting-the-data-3" class="slide level2">
+<h2>Getting the data</h2>
+<ul>
+<li><code>exceededTransferLimit = TRUE</code> tells us that 2000 records is the limit of a single API request.</li>
+<li>How many total records are available?</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9" data-code-line-numbers="|2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a>n_records <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(<span class="fu">paste0</span>(query_url,</span>
+<span id="cb9-2"><a href="#cb9-2"></a>                              <span class="st">"&amp;returnCountOnly=true"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3"></a>  <span class="fu">content</span>(<span class="at">as =</span> <span class="st">"parsed"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb9-4"><a href="#cb9-4"></a>  <span class="fu">unlist</span>(<span class="at">use.names =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb9-5"><a href="#cb9-5"></a>n_records</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 124356</code></pre>
+</div>
+</div>
+</section>
+<section id="getting-the-data-4" class="slide level2">
+<h2>Getting the data</h2>
+<ul>
+<li>Write a function to get 2000 records at a time and iterate</li>
+</ul>
+<div class="cell">
+<details>
+<summary>get_bike_data()</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>get_bike_data <span class="ot">&lt;-</span> <span class="cf">function</span>(offset) {</span>
+<span id="cb11-2"><a href="#cb11-2"></a>  <span class="co"># Need to prevent scientific notation, e.g. "1e+05" instead of "100000"</span></span>
+<span id="cb11-3"><a href="#cb11-3"></a>  offset <span class="ot">&lt;-</span> <span class="fu">format</span>(offset, <span class="at">scientific =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-4"><a href="#cb11-4"></a>  </span>
+<span id="cb11-5"><a href="#cb11-5"></a>  parsed_content <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(<span class="fu">paste0</span>(query_url, <span class="st">"&amp;resultOffset="</span>, offset)) <span class="sc">%&gt;%</span></span>
+<span id="cb11-6"><a href="#cb11-6"></a>    <span class="fu">content</span>(<span class="at">as =</span> <span class="st">"parsed"</span>)</span>
+<span id="cb11-7"><a href="#cb11-7"></a>  </span>
+<span id="cb11-8"><a href="#cb11-8"></a>  <span class="fu">map_dfr</span>(</span>
+<span id="cb11-9"><a href="#cb11-9"></a>    parsed_content<span class="sc">$</span>features,</span>
+<span id="cb11-10"><a href="#cb11-10"></a>    <span class="sc">~</span> <span class="fu">as_tibble</span>(.x<span class="sc">$</span>attributes)</span>
+<span id="cb11-11"><a href="#cb11-11"></a>  ) </span>
+<span id="cb11-12"><a href="#cb11-12"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12" data-code-line-numbers="|5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a>bike_data <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
+<span id="cb12-2"><a href="#cb12-2"></a>  <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fu">ceiling</span>(n_records <span class="sc">/</span> <span class="dv">2000</span>)),</span>
+<span id="cb12-3"><a href="#cb12-3"></a>  <span class="sc">~</span> <span class="fu">get_bike_data</span>(<span class="at">offset =</span> .x <span class="sc">*</span> <span class="dv">2000</span>)</span>
+<span id="cb12-4"><a href="#cb12-4"></a>)</span>
+<span id="cb12-5"><a href="#cb12-5"></a>bike_data <span class="ot">&lt;-</span> janitor<span class="sc">::</span><span class="fu">clean_names</span>(bike_data)</span>
+<span id="cb12-6"><a href="#cb12-6"></a><span class="fu">glimpse</span>(bike_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>Rows: 124,356
+Columns: 11
+$ channel_id        &lt;chr&gt; "100059339", "100059339", "100059339", "100059339", …
+$ channel_name      &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
+$ serial_number     &lt;chr&gt; "X2H20032465", "X2H20032465", "X2H20032465", "X2H200…
+$ site_name         &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
+$ latitude          &lt;dbl&gt; 44.64799, 44.64799, 44.64799, 44.64799, 44.64799, 44…
+$ longitude         &lt;dbl&gt; -63.57352, -63.57352, -63.57352, -63.57352, -63.5735…
+$ installation_date &lt;dbl&gt; 1.594166e+12, 1.594166e+12, 1.594166e+12, 1.594166e+…
+$ count_datetime    &lt;dbl&gt; 1.595966e+12, 1.595970e+12, 1.595974e+12, 1.595977e+…
+$ counter_type      &lt;chr&gt; "Bicycle", "Bicycle", "Bicycle", "Bicycle", "Bicycle…
+$ counter_value     &lt;int&gt; 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 6, 4, 13, 8, 5, 6, 8, …
+$ object_id         &lt;int&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1…</code></pre>
+</div>
+</div>
+</section>
+<section id="exploring-the-data" class="slide level2">
+<h2>Exploring the data</h2>
+<div class="cell">
+
+</div>
+<ul>
+<li>How many records?</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a>bike_data <span class="sc">%&gt;%</span> <span class="fu">count</span>(site_name, channel_name, <span class="at">name =</span> <span class="st">"n_records"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="kable-table">
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+site_name
+</th>
+<th style="text-align:left;">
+channel_name
+</th>
+<th style="text-align:right;">
+n_records
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Dartmouth Harbourfront Greenway
+</td>
+<td style="text-align:left;">
+Dartmouth Harbourfront Greenway Northbound
+</td>
+<td style="text-align:right;">
+6988
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Dartmouth Harbourfront Greenway
+</td>
+<td style="text-align:left;">
+Dartmouth Harbourfront Greenway Southbound
+</td>
+<td style="text-align:right;">
+6988
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Hollis St
+</td>
+<td style="text-align:left;">
+Hollis St
+</td>
+<td style="text-align:right;">
+15748
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+South Park St
+</td>
+<td style="text-align:left;">
+South Park St Northbound
+</td>
+<td style="text-align:right;">
+23212
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+South Park St
+</td>
+<td style="text-align:left;">
+South Park St Southbound
+</td>
+<td style="text-align:right;">
+23212
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Vernon St
+</td>
+<td style="text-align:left;">
+Vernon St Northbound
+</td>
+<td style="text-align:right;">
+12052
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Vernon St
+</td>
+<td style="text-align:left;">
+Vernon St Southbound
+</td>
+<td style="text-align:right;">
+12052
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Windsor St
+</td>
+<td style="text-align:left;">
+Windsor St Northbound
+</td>
+<td style="text-align:right;">
+12052
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Windsor St
+</td>
+<td style="text-align:left;">
+Windsor St Southbound
+</td>
+<td style="text-align:right;">
+12052
+</td>
+</tr>
+</tbody>
+
+</table>
+</div>
+</div>
+</div>
+<div class="fragment">
+<ul>
+<li>5 sites</li>
+<li>4 out of 5 have two “channels”</li>
+<li>South Park St has the most recent</li>
+</ul>
+</div>
+</section>
+<section id="exploring-the-data-1" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Dates?</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a>bike_data <span class="sc">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2"></a>  <span class="fu">group_by</span>(site_name, installation_date) <span class="sc">%&gt;%</span></span>
+<span id="cb15-3"><a href="#cb15-3"></a>  <span class="fu">summarise</span>(<span class="at">min_count_date =</span> <span class="fu">min</span>(count_date), <span class="at">max_count_date =</span> <span class="fu">max</span>(count_date),</span>
+<span id="cb15-4"><a href="#cb15-4"></a>            <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="kable-table">
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+site_name
+</th>
+<th style="text-align:left;">
+installation_date
+</th>
+<th style="text-align:left;">
+min_count_date
+</th>
+<th style="text-align:left;">
+max_count_date
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Dartmouth Harbourfront Greenway
+</td>
+<td style="text-align:left;">
+2021-07-08
+</td>
+<td style="text-align:left;">
+2021-07-08
+</td>
+<td style="text-align:left;">
+2022-04-25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Hollis St
+</td>
+<td style="text-align:left;">
+2020-07-08
+</td>
+<td style="text-align:left;">
+2020-07-08
+</td>
+<td style="text-align:left;">
+2022-04-25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+South Park St
+</td>
+<td style="text-align:left;">
+2019-09-01
+</td>
+<td style="text-align:left;">
+2019-09-01
+</td>
+<td style="text-align:left;">
+2022-04-25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Vernon St
+</td>
+<td style="text-align:left;">
+2020-12-09
+</td>
+<td style="text-align:left;">
+2020-12-09
+</td>
+<td style="text-align:left;">
+2022-04-25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Windsor St
+</td>
+<td style="text-align:left;">
+2020-12-09
+</td>
+<td style="text-align:left;">
+2020-12-09
+</td>
+<td style="text-align:left;">
+2022-04-25
+</td>
+</tr>
+</tbody>
+
+</table>
+</div>
+</div>
+</div>
+</section>
+<section id="exploring-the-data-2" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Where exactly are the sites?</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a>site_locs <span class="ot">&lt;-</span> bike_data <span class="sc">%&gt;%</span></span>
+<span id="cb16-2"><a href="#cb16-2"></a>  <span class="fu">distinct</span>(site_name, <span class="at">lat =</span> latitude, <span class="at">lon =</span> longitude)</span>
+<span id="cb16-3"><a href="#cb16-3"></a></span>
+<span id="cb16-4"><a href="#cb16-4"></a>mean_lat <span class="ot">&lt;-</span> <span class="fu">mean</span>(site_locs<span class="sc">$</span>lat)</span>
+<span id="cb16-5"><a href="#cb16-5"></a>mean_lon <span class="ot">&lt;-</span> <span class="fu">mean</span>(site_locs<span class="sc">$</span>lon)</span>
+<span id="cb16-6"><a href="#cb16-6"></a><span class="fu">c</span>(mean_lat, mean_lon)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1]  44.65037 -63.58116</code></pre>
+</div>
+</div>
+<div class="fragment">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a><span class="fu">library</span>(ggmap)</span>
+<span id="cb18-2"><a href="#cb18-2"></a>halifax_map <span class="ot">&lt;-</span> <span class="fu">get_googlemap</span>(<span class="fu">c</span>(mean_lon, mean_lat),</span>
+<span id="cb18-3"><a href="#cb18-3"></a>                             <span class="at">zoom =</span> <span class="dv">14</span>, <span class="at">maptype =</span> <span class="st">"satellite"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+
+</div>
+</div>
+</section>
+<section id="exploring-the-data-3" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Where exactly are the sites?</li>
+</ul>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a><span class="fu">ggmap</span>(halifax_map) <span class="sc">+</span></span>
+<span id="cb19-2"><a href="#cb19-2"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> site_locs, <span class="at">size =</span> <span class="dv">4</span>,</span>
+<span id="cb19-3"><a href="#cb19-3"></a>             <span class="fu">aes</span>(<span class="at">fill =</span> site_name), <span class="at">shape =</span> <span class="dv">21</span>, <span class="at">color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb19-4"><a href="#cb19-4"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(</span>
+<span id="cb19-5"><a href="#cb19-5"></a>    <span class="at">data =</span> site_locs,</span>
+<span id="cb19-6"><a href="#cb19-6"></a>    <span class="fu">aes</span>(<span class="at">color =</span> site_name, <span class="at">label =</span> <span class="fu">str_trunc</span>(site_name, <span class="at">width =</span> <span class="dv">25</span>)),</span>
+<span id="cb19-7"><a href="#cb19-7"></a>    <span class="at">box.padding =</span> <span class="fl">1.0</span></span>
+<span id="cb19-8"><a href="#cb19-8"></a>  ) <span class="sc">+</span></span>
+<span id="cb19-9"><a href="#cb19-9"></a>  <span class="fu">theme_void</span>() <span class="sc">+</span></span>
+<span id="cb19-10"><a href="#cb19-10"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-18-1.png" width="960" class="r-stretch"></section>
+<section id="exploring-the-data-4" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>At what frequency are data recorded?</li>
+</ul>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a>bike_data <span class="sc">%&gt;%</span></span>
+<span id="cb20-2"><a href="#cb20-2"></a>  <span class="fu">mutate</span>(<span class="at">time_of_day =</span> <span class="fu">format</span>(count_datetime, <span class="st">"%H:%M:%S"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb20-3"><a href="#cb20-3"></a>  <span class="fu">count</span>(site_name, time_of_day, <span class="at">name =</span> <span class="st">"n_records"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-4"><a href="#cb20-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> time_of_day, <span class="at">x =</span> n_records)) <span class="sc">+</span></span>
+<span id="cb20-5"><a href="#cb20-5"></a>  <span class="fu">geom_col</span>(<span class="fu">aes</span>(<span class="at">fill =</span> <span class="fu">str_trunc</span>(site_name, <span class="dv">20</span>))) <span class="sc">+</span></span>
+<span id="cb20-6"><a href="#cb20-6"></a>  <span class="fu">labs</span>(<span class="at">fill =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb20-7"><a href="#cb20-7"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>),</span>
+<span id="cb20-8"><a href="#cb20-8"></a>                     <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">5000</span>, <span class="dv">1000</span>)) <span class="sc">+</span></span>
+<span id="cb20-9"><a href="#cb20-9"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-19-1.png" width="960" class="r-stretch"></section>
+<section id="exploring-the-data-5" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>What time zone is this?</li>
+</ul>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a>bike_data_tod <span class="ot">&lt;-</span> bike_data <span class="sc">%&gt;%</span></span>
+<span id="cb21-2"><a href="#cb21-2"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb21-3"><a href="#cb21-3"></a>    <span class="at">time_of_day =</span> <span class="fu">format</span>(count_datetime, <span class="st">"%H:%M:%S"</span>),</span>
+<span id="cb21-4"><a href="#cb21-4"></a>    <span class="co"># Create a dummy variable with arbitrary date so I can plot time of day</span></span>
+<span id="cb21-5"><a href="#cb21-5"></a>    <span class="at">time_of_day =</span> lubridate<span class="sc">::</span><span class="fu">ymd_hms</span>(</span>
+<span id="cb21-6"><a href="#cb21-6"></a>      <span class="fu">paste0</span>(<span class="st">"2022-04-22 "</span>, time_of_day)</span>
+<span id="cb21-7"><a href="#cb21-7"></a>    )</span>
+<span id="cb21-8"><a href="#cb21-8"></a>  )</span>
+<span id="cb21-9"><a href="#cb21-9"></a>bike_data_tod <span class="sc">%&gt;%</span></span>
+<span id="cb21-10"><a href="#cb21-10"></a>  <span class="fu">group_by</span>(site_name, time_of_day) <span class="sc">%&gt;%</span></span>
+<span id="cb21-11"><a href="#cb21-11"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb21-12"><a href="#cb21-12"></a>    <span class="at">n =</span> <span class="fu">n</span>(), <span class="at">mean_count =</span> <span class="fu">mean</span>(counter_value),</span>
+<span id="cb21-13"><a href="#cb21-13"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb21-14"><a href="#cb21-14"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb21-15"><a href="#cb21-15"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> time_of_day, <span class="at">y =</span> mean_count)) <span class="sc">+</span></span>
+<span id="cb21-16"><a href="#cb21-16"></a>  <span class="fu">geom_area</span>(<span class="fu">aes</span>(<span class="at">fill =</span> site_name), <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb21-17"><a href="#cb21-17"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.POSIXct</span>(<span class="st">"2022-04-22 08:00:01"</span>, <span class="at">tz =</span> <span class="st">"UTC"</span>),</span>
+<span id="cb21-18"><a href="#cb21-18"></a>             <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb21-19"><a href="#cb21-19"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.POSIXct</span>(<span class="st">"2022-04-22 16:00:01"</span>, <span class="at">tz =</span> <span class="st">"UTC"</span>),</span>
+<span id="cb21-20"><a href="#cb21-20"></a>             <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb21-21"><a href="#cb21-21"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb21-22"><a href="#cb21-22"></a>  <span class="fu">scale_x_datetime</span>(<span class="at">date_breaks =</span> <span class="st">"2 hours"</span>, <span class="at">date_labels =</span> <span class="st">"%H"</span>) <span class="sc">+</span></span>
+<span id="cb21-23"><a href="#cb21-23"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.1</span>))) <span class="sc">+</span></span>
+<span id="cb21-24"><a href="#cb21-24"></a>  dunnr<span class="sc">::</span><span class="fu">theme_td</span>(<span class="at">base_size =</span> <span class="dv">30</span>) <span class="sc">+</span></span>
+<span id="cb21-25"><a href="#cb21-25"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb21-26"><a href="#cb21-26"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-20-1.png" width="1920"></p>
+</div>
+</div>
+<aside class="notes">
+<ul>
+<li>If they were in UTC time, the peaks would correspond to 11AM and 8PM locally, which would be odd times for peak cyclists.</li>
+<li>If not Atlantic time (GMT-4), then the next</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="exploring-the-data-6" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>4 of the sites have northbound and southbound channels, how do they differ?</li>
+</ul>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a>d <span class="ot">&lt;-</span> bike_data_tod <span class="sc">%&gt;%</span></span>
+<span id="cb22-2"><a href="#cb22-2"></a>  <span class="co"># Remove Hollis St, which does not have different channels</span></span>
+<span id="cb22-3"><a href="#cb22-3"></a>  <span class="fu">filter</span>(site_name <span class="sc">!=</span> <span class="st">"Hollis St"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb22-4"><a href="#cb22-4"></a>  <span class="fu">mutate</span>(<span class="at">channel_direction =</span> <span class="fu">str_extract</span>(channel_name, <span class="st">"(North|South)bound"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb22-5"><a href="#cb22-5"></a>  <span class="fu">group_by</span>(site_name, channel_direction, time_of_day) <span class="sc">%&gt;%</span></span>
+<span id="cb22-6"><a href="#cb22-6"></a>  <span class="fu">summarise</span>(<span class="at">mean_count =</span> <span class="fu">mean</span>(counter_value), <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb22-7"><a href="#cb22-7"></a>p <span class="ot">&lt;-</span> d <span class="sc">%&gt;%</span></span>
+<span id="cb22-8"><a href="#cb22-8"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> time_of_day, <span class="at">y =</span> mean_count, <span class="at">color =</span> channel_direction)) <span class="sc">+</span></span>
+<span id="cb22-9"><a href="#cb22-9"></a>  <span class="fu">geom_area</span>(<span class="fu">aes</span>(<span class="at">fill =</span> channel_direction),</span>
+<span id="cb22-10"><a href="#cb22-10"></a>            <span class="at">alpha =</span> <span class="fl">0.2</span>, <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="dv">0</span>),</span>
+<span id="cb22-11"><a href="#cb22-11"></a>            <span class="at">show.legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
+<span id="cb22-12"><a href="#cb22-12"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.POSIXct</span>(<span class="st">"2022-04-22 08:00:01"</span>, <span class="at">tz =</span> <span class="st">"UTC"</span>),</span>
+<span id="cb22-13"><a href="#cb22-13"></a>             <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb22-14"><a href="#cb22-14"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.POSIXct</span>(<span class="st">"2022-04-22 16:00:01"</span>, <span class="at">tz =</span> <span class="st">"UTC"</span>),</span>
+<span id="cb22-15"><a href="#cb22-15"></a>             <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb22-16"><a href="#cb22-16"></a>  <span class="fu">geom_line</span>(<span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb22-17"><a href="#cb22-17"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb22-18"><a href="#cb22-18"></a>  <span class="fu">scale_x_datetime</span>(<span class="at">date_breaks =</span> <span class="st">"2 hours"</span>, <span class="at">date_labels =</span> <span class="st">"%H"</span>) <span class="sc">+</span></span>
+<span id="cb22-19"><a href="#cb22-19"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">breaks =</span> scales<span class="sc">::</span><span class="fu">breaks_pretty</span>(<span class="at">n =</span> <span class="dv">3</span>),</span>
+<span id="cb22-20"><a href="#cb22-20"></a>                     <span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.1</span>))) <span class="sc">+</span></span>
+<span id="cb22-21"><a href="#cb22-21"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>) <span class="sc">+</span></span>
+<span id="cb22-22"><a href="#cb22-22"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>()</span>
+<span id="cb22-23"><a href="#cb22-23"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-21-1.png" width="960" class="r-stretch"></section>
+<section id="exploring-the-data-7" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>4 of the sites have northbound and southbound channels, how do they differ?</li>
+</ul>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1"></a>(p <span class="sc">%+%</span> <span class="fu">filter</span>(d, site_name <span class="sc">==</span> <span class="st">"Vernon St"</span>)) <span class="sc">+</span></span>
+<span id="cb23-2"><a href="#cb23-2"></a>  <span class="fu">theme_td</span>(<span class="at">base_size =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
+<span id="cb23-3"><a href="#cb23-3"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-22-1.png" width="960"></p>
+</div>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1"></a><span class="fu">ggmap</span>(halifax_map) <span class="sc">+</span></span>
+<span id="cb24-2"><a href="#cb24-2"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> <span class="fu">filter</span>(site_locs, site_name <span class="sc">==</span> <span class="st">"Vernon St"</span>), <span class="at">size =</span> <span class="dv">4</span>,</span>
+<span id="cb24-3"><a href="#cb24-3"></a>             <span class="fu">aes</span>(<span class="at">fill =</span> site_name), <span class="at">shape =</span> <span class="dv">21</span>, <span class="at">color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb24-4"><a href="#cb24-4"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(</span>
+<span id="cb24-5"><a href="#cb24-5"></a>    <span class="at">data =</span> <span class="fu">filter</span>(site_locs, site_name <span class="sc">==</span> <span class="st">"Vernon St"</span>),</span>
+<span id="cb24-6"><a href="#cb24-6"></a>    <span class="fu">aes</span>(<span class="at">color =</span> site_name, <span class="at">label =</span> site_name),</span>
+<span id="cb24-7"><a href="#cb24-7"></a>    <span class="at">box.padding =</span> <span class="fl">1.0</span>, <span class="at">size =</span> <span class="dv">8</span></span>
+<span id="cb24-8"><a href="#cb24-8"></a>  ) <span class="sc">+</span></span>
+<span id="cb24-9"><a href="#cb24-9"></a>  <span class="fu">theme_void</span>(<span class="at">base_family =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
+<span id="cb24-10"><a href="#cb24-10"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb24-11"><a href="#cb24-11"></a>  <span class="fu">ylim</span>(<span class="fl">44.63</span>, <span class="fl">44.645</span>) <span class="sc">+</span></span>
+<span id="cb24-12"><a href="#cb24-12"></a>  <span class="fu">xlim</span>(<span class="sc">-</span><span class="fl">63.605</span>, <span class="sc">-</span><span class="fl">63.575</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-23-1.png" width="960"></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="exploring-the-data-8" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Visualizing the daily totals</li>
+</ul>
+<div class="cell">
+
+</div>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a>p <span class="ot">&lt;-</span> bike_data_daily_counts <span class="sc">%&gt;%</span></span>
+<span id="cb25-2"><a href="#cb25-2"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> count_date, <span class="at">y =</span> n_bikes)) <span class="sc">+</span></span>
+<span id="cb25-3"><a href="#cb25-3"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">color =</span> site_name), <span class="at">show.legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
+<span id="cb25-4"><a href="#cb25-4"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb25-5"><a href="#cb25-5"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>()</span>
+<span id="cb25-6"><a href="#cb25-6"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-25-1.png" width="960" class="r-stretch quarto-figure-center"><div class="cell">
+
+</div>
+</section>
+<section id="exploring-the-data-9" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>First observation: a series of zeroes</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a>p_thick <span class="sc">%+%</span></span>
+<span id="cb26-2"><a href="#cb26-2"></a>  <span class="fu">filter</span>(bike_data_daily_counts,</span>
+<span id="cb26-3"><a href="#cb26-3"></a>         site_name <span class="sc">==</span> <span class="st">"South Park St"</span>, count_date <span class="sc">&lt;</span> <span class="st">"2020-01-01"</span>) <span class="sc">+</span></span>
+<span id="cb26-4"><a href="#cb26-4"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="st">"#709b81"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-27-1.png" width="960" class="r-stretch quarto-figure-center"><div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a>bike_data_daily_counts <span class="ot">&lt;-</span> bike_data_daily_counts <span class="sc">%&gt;%</span></span>
+<span id="cb27-2"><a href="#cb27-2"></a>  <span class="fu">filter</span>(<span class="sc">!</span>((site_name <span class="sc">==</span> <span class="st">"South Park St"</span>) <span class="sc">&amp;</span> (count_date <span class="sc">&lt;</span> <span class="st">"2019-11-23"</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="exploring-the-data-10" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Second observation: a big year-to-year increase on South Park St</li>
+</ul>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a>p <span class="sc">%+%</span></span>
+<span id="cb28-2"><a href="#cb28-2"></a>  <span class="fu">filter</span>(bike_data_daily_counts, site_name <span class="sc">==</span> <span class="st">"South Park St"</span>) <span class="sc">+</span></span>
+<span id="cb28-3"><a href="#cb28-3"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="st">"#709b81"</span>) <span class="sc">+</span></span>
+<span id="cb28-4"><a href="#cb28-4"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.Date</span>(<span class="st">"2020-09-20"</span>), <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb28-5"><a href="#cb28-5"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.Date</span>(<span class="st">"2020-12-20"</span>), <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb28-6"><a href="#cb28-6"></a>  <span class="fu">theme_td</span>(<span class="at">base_size =</span> <span class="dv">20</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-29-1.png" width="960"></p>
+</div>
+</div>
+</div><div class="column fragment" style="width:50%;">
+<p><img data-src="images/south-park-lane.PNG"></p>
+</div>
+</div>
+<aside class="notes">
+<ul>
+<li>Of note: this shows the effect of the pandemic</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="exploring-the-data-11" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Third observation: a large spike in February 2022</li>
+</ul>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1"></a>p_thick <span class="sc">%+%</span></span>
+<span id="cb29-2"><a href="#cb29-2"></a>  <span class="fu">filter</span>(bike_data_daily_counts,</span>
+<span id="cb29-3"><a href="#cb29-3"></a>         count_date <span class="sc">&gt;=</span> <span class="st">"2022-02-01"</span>, count_date <span class="sc">&lt;</span> <span class="st">"2022-03-01"</span>) <span class="sc">+</span></span>
+<span id="cb29-4"><a href="#cb29-4"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.Date</span>(<span class="st">"2022-02-12"</span>), <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb29-5"><a href="#cb29-5"></a>  <span class="fu">theme_td</span>(<span class="at">base_size =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
+<span id="cb29-6"><a href="#cb29-6"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-30-1.png" width="960"></p>
+</div>
+</div>
+</div><div class="column fragment" style="width:50%;">
+<p><img data-src="images/convoy-article.PNG"></p>
+</div>
+</div>
+</section>
+<section id="exploring-the-data-12" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Overlay years to see seasonality</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1"></a>bike_data_daily_counts <span class="sc">%&gt;%</span></span>
+<span id="cb30-2"><a href="#cb30-2"></a>  <span class="fu">mutate</span>(<span class="at">count_year =</span> <span class="fu">year</span>(count_date),</span>
+<span id="cb30-3"><a href="#cb30-3"></a>         <span class="co"># Replace year with 1970 so I can plot on the same scale</span></span>
+<span id="cb30-4"><a href="#cb30-4"></a>         <span class="at">count_date =</span> <span class="fu">as.Date</span>(<span class="fu">yday</span>(count_date), <span class="at">origin =</span> <span class="st">"1970-01-01"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb30-5"><a href="#cb30-5"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> count_date, <span class="at">y =</span> n_bikes, <span class="at">color =</span> <span class="fu">factor</span>(count_year))) <span class="sc">+</span></span>
+<span id="cb30-6"><a href="#cb30-6"></a>  <span class="fu">geom_line</span>(<span class="at">size =</span> <span class="fl">0.5</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb30-7"><a href="#cb30-7"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"loess"</span>, <span class="at">formula =</span> <span class="st">"y ~ x"</span>, <span class="at">show.legend =</span> <span class="cn">FALSE</span>) <span class="sc">+</span></span>
+<span id="cb30-8"><a href="#cb30-8"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb30-9"><a href="#cb30-9"></a>  <span class="fu">scale_x_date</span>(<span class="at">date_labels =</span> <span class="st">"%B"</span>) <span class="sc">+</span></span>
+<span id="cb30-10"><a href="#cb30-10"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>() <span class="sc">+</span></span>
+<span id="cb30-11"><a href="#cb30-11"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="st">"Year"</span>, <span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">by =</span> <span class="cn">TRUE</span>)) <span class="sc">+</span></span>
+<span id="cb30-12"><a href="#cb30-12"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="fu">c</span>(<span class="fl">0.6</span>, <span class="fl">0.1</span>)) <span class="sc">+</span></span>
+<span id="cb30-13"><a href="#cb30-13"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">color =</span> <span class="st">"Year"</span>) <span class="sc">+</span></span>
+<span id="cb30-14"><a href="#cb30-14"></a>  <span class="fu">scale_color_brewer</span>(<span class="at">palette =</span> <span class="st">"Set1"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-31-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<section id="exploring-the-data-13" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>How about day of week?</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1"></a>bike_data_daily_counts <span class="sc">%&gt;%</span></span>
+<span id="cb31-2"><a href="#cb31-2"></a>  <span class="fu">mutate</span>(<span class="at">day_of_week =</span> lubridate<span class="sc">::</span><span class="fu">wday</span>(count_date, <span class="at">label =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb31-3"><a href="#cb31-3"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> day_of_week, <span class="at">x =</span> n_bikes)) <span class="sc">+</span></span>
+<span id="cb31-4"><a href="#cb31-4"></a>  <span class="fu">geom_jitter</span>(<span class="fu">aes</span>(<span class="at">color =</span> site_name), <span class="at">height =</span> <span class="fl">0.2</span>, <span class="at">width =</span> <span class="dv">0</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>) <span class="sc">+</span></span>
+<span id="cb31-5"><a href="#cb31-5"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> <span class="st">"mean"</span>, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb31-6"><a href="#cb31-6"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">str_trunc</span>(site_name, <span class="dv">30</span>), <span class="at">ncol =</span> <span class="dv">3</span>, <span class="at">scales =</span> <span class="st">"free_x"</span>) <span class="sc">+</span></span>
+<span id="cb31-7"><a href="#cb31-7"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb31-8"><a href="#cb31-8"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-32-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<section id="exploring-the-data-14" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>How about holidays?</li>
+</ul>
+<div class="cell columns column-output-location">
+<div class="column">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode numberSource r code-overflow-wrap number-lines code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1"></a><span class="fu">library</span>(timeDate)</span>
+<span id="cb32-2"><a href="#cb32-2"></a></span>
+<span id="cb32-3"><a href="#cb32-3"></a>canada_holidays <span class="ot">&lt;-</span></span>
+<span id="cb32-4"><a href="#cb32-4"></a>  <span class="fu">listHolidays</span>(</span>
+<span id="cb32-5"><a href="#cb32-5"></a>    <span class="at">pattern =</span> <span class="st">"^CA|^Christmas|^NewYears|Easter[Sun|Mon]|^GoodFriday|^CaRem"</span></span>
+<span id="cb32-6"><a href="#cb32-6"></a>  )</span>
+<span id="cb32-7"><a href="#cb32-7"></a>canada_holidays</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div><div class="column">
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "CACanadaDay"              "CACivicProvincialHoliday"
+ [3] "CALabourDay"              "CaRemembranceDay"        
+ [5] "CAThanksgivingDay"        "CAVictoriaDay"           
+ [7] "ChristmasDay"             "ChristmasEve"            
+ [9] "EasterMonday"             "EasterSunday"            
+[11] "GoodFriday"               "NewYearsDay"             </code></pre>
+</div>
+</div>
+</div>
+<div class="fragment">
+<div class="cell columns column-output-location">
+<div class="column">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1"></a>canada_holiday_dates <span class="ot">&lt;-</span></span>
+<span id="cb34-2"><a href="#cb34-2"></a>  <span class="fu">tibble</span>(<span class="at">holiday =</span> canada_holidays) <span class="sc">%&gt;%</span></span>
+<span id="cb34-3"><a href="#cb34-3"></a>  <span class="fu">crossing</span>(<span class="at">year =</span> <span class="dv">2019</span><span class="sc">:</span><span class="dv">2022</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb34-4"><a href="#cb34-4"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb34-5"><a href="#cb34-5"></a>    <span class="at">holiday_date =</span> <span class="fu">map2</span>(</span>
+<span id="cb34-6"><a href="#cb34-6"></a>      year, holiday,</span>
+<span id="cb34-7"><a href="#cb34-7"></a>      <span class="sc">~</span> <span class="fu">as.Date</span>(<span class="fu">holiday</span>(.x, .y)<span class="sc">@</span>Data)</span>
+<span id="cb34-8"><a href="#cb34-8"></a>    )</span>
+<span id="cb34-9"><a href="#cb34-9"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb34-10"><a href="#cb34-10"></a>  <span class="fu">unnest</span>(holiday_date) <span class="sc">%&gt;%</span></span>
+<span id="cb34-11"><a href="#cb34-11"></a>  <span class="fu">arrange</span>(holiday_date)</span>
+<span id="cb34-12"><a href="#cb34-12"></a></span>
+<span id="cb34-13"><a href="#cb34-13"></a><span class="fu">head</span>(canada_holiday_dates)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div><div class="column">
+<div class="cell-output-display">
+<div class="kable-table">
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+holiday
+</th>
+<th style="text-align:right;">
+year
+</th>
+<th style="text-align:left;">
+holiday_date
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+NewYearsDay
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+2019-01-01
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+GoodFriday
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+2019-04-19
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EasterSunday
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+2019-04-21
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EasterMonday
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+2019-04-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CAVictoriaDay
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+2019-05-20
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CACanadaDay
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+2019-07-01
+</td>
+</tr>
+</tbody>
+
+</table>
+</div>
+</div>
+</div>
+</div>
+<aside class="notes">
+<ul>
+<li>Civic provincial holiday is called Natal day in Nova Scotia. Actually just passed, first Monday of August.</li>
+<li>Not a stat holiday, but a day off for many employees across Canada.</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</div>
+</section>
+<section id="exploring-the-data-15" class="slide level2">
+<h2>Exploring the data</h2>
+<ul>
+<li>Is there a holiday effect?</li>
+</ul>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1"></a>canada_holiday_dates <span class="sc">%&gt;%</span></span>
+<span id="cb35-2"><a href="#cb35-2"></a>  <span class="fu">filter</span>(holiday_date <span class="sc">%in%</span> <span class="fu">unique</span>(bike_data_daily_counts<span class="sc">$</span>count_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb35-3"><a href="#cb35-3"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb35-4"><a href="#cb35-4"></a>    <span class="at">date_window =</span> <span class="fu">map</span>(holiday_date, <span class="sc">~</span> <span class="fu">seq.Date</span>(.x <span class="sc">-</span> <span class="dv">14</span>, .x <span class="sc">+</span> <span class="dv">14</span>, <span class="at">by =</span> <span class="st">"1 day"</span>))</span>
+<span id="cb35-5"><a href="#cb35-5"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb35-6"><a href="#cb35-6"></a>  <span class="fu">unnest</span>(date_window) <span class="sc">%&gt;%</span></span>
+<span id="cb35-7"><a href="#cb35-7"></a>  <span class="fu">left_join</span>(</span>
+<span id="cb35-8"><a href="#cb35-8"></a>    bike_data_daily_counts, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"date_window"</span> <span class="ot">=</span> <span class="st">"count_date"</span>)</span>
+<span id="cb35-9"><a href="#cb35-9"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb35-10"><a href="#cb35-10"></a>  <span class="fu">mutate</span>(<span class="at">is_holiday =</span> holiday_date <span class="sc">==</span> date_window) <span class="sc">%&gt;%</span></span>
+<span id="cb35-11"><a href="#cb35-11"></a>  <span class="fu">group_by</span>(holiday) <span class="sc">%&gt;%</span></span>
+<span id="cb35-12"><a href="#cb35-12"></a>  <span class="fu">mutate</span>(<span class="at">day_from_holiday =</span> <span class="fu">as.numeric</span>(date_window <span class="sc">-</span> holiday_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb35-13"><a href="#cb35-13"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb35-14"><a href="#cb35-14"></a>  <span class="fu">filter</span>(site_name <span class="sc">==</span> <span class="st">"South Park St"</span>,</span>
+<span id="cb35-15"><a href="#cb35-15"></a>         <span class="fu">str_detect</span>(holiday, <span class="st">"Provincial|EasterSunday|ChristmasDay"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb35-16"><a href="#cb35-16"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> day_from_holiday, <span class="at">y =</span> n_bikes,</span>
+<span id="cb35-17"><a href="#cb35-17"></a>             <span class="at">group =</span> <span class="fu">factor</span>(year))) <span class="sc">+</span></span>
+<span id="cb35-18"><a href="#cb35-18"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb35-19"><a href="#cb35-19"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">color =</span> <span class="fu">factor</span>(year)), <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb35-20"><a href="#cb35-20"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">color =</span> <span class="fu">factor</span>(year)), <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb35-21"><a href="#cb35-21"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> holiday, <span class="at">scales =</span> <span class="st">"free_y"</span>, <span class="at">ncol =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb35-22"><a href="#cb35-22"></a>  <span class="fu">theme_td</span>(<span class="at">base_size =</span> <span class="dv">24</span>) <span class="sc">+</span></span>
+<span id="cb35-23"><a href="#cb35-23"></a>  dunnr<span class="sc">::</span><span class="fu">add_facet_borders</span>() <span class="sc">+</span></span>
+<span id="cb35-24"><a href="#cb35-24"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"top"</span>,</span>
+<span id="cb35-25"><a href="#cb35-25"></a>        <span class="at">panel.grid.major.x =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"lightgrey"</span>)) <span class="sc">+</span></span>
+<span id="cb35-26"><a href="#cb35-26"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">14</span>, <span class="sc">-</span><span class="dv">7</span>, <span class="dv">0</span>, <span class="dv">7</span>, <span class="dv">14</span>)) <span class="sc">+</span></span>
+<span id="cb35-27"><a href="#cb35-27"></a>  <span class="fu">scale_color_brewer</span>(<span class="st">"Year"</span>, <span class="at">palette =</span> <span class="st">"Set1"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-35-1.png" width="1536"></p>
+</figure>
+</div>
+</div>
+</div>
+<aside class="notes">
+<ul>
+<li>Only showing South Park St (3 years of data) and only 3 out of 12 holidays</li>
+</ul>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="getting-the-weather-data" class="slide level2">
+<h2>Getting the weather data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1"></a>base_url <span class="ot">&lt;-</span> <span class="st">"https://api.weather.gc.ca/"</span></span>
+<span id="cb36-2"><a href="#cb36-2"></a>resp <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(</span>
+<span id="cb36-3"><a href="#cb36-3"></a>  <span class="fu">paste0</span>(base_url,</span>
+<span id="cb36-4"><a href="#cb36-4"></a>         <span class="st">"collections/climate-stations/items?f=json&amp;limit=10000"</span>)</span>
+<span id="cb36-5"><a href="#cb36-5"></a>)</span>
+<span id="cb36-6"><a href="#cb36-6"></a>resp</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>Response [https://api.weather.gc.ca/collections/climate-stations/items?f=json&amp;limit=10000]
+  Date: 2022-04-27 03:27
+  Status: 200
+  Content-Type: application/json
+  Size: 9.13 MB</code></pre>
+</div>
+</div>
+<div class="fragment">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1"></a>content_parsed <span class="ot">&lt;-</span> <span class="fu">content</span>(resp, <span class="at">as =</span> <span class="st">"parsed"</span>)</span>
+<span id="cb38-2"><a href="#cb38-2"></a><span class="fu">str</span>(content_parsed, <span class="at">max.level =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>List of 6
+ $ type          : chr "FeatureCollection"
+ $ features      :List of 8552
+ $ numberMatched : int 8552
+ $ numberReturned: int 8552
+ $ links         :List of 4
+ $ timeStamp     : chr "2022-04-27T03:27:27.265491Z"</code></pre>
+</div>
+</div>
+</div>
+</section>
+<section id="getting-the-weather-data-1" class="slide level2">
+<h2>Getting the weather data</h2>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1"></a>climate_stations <span class="ot">&lt;-</span> content_parsed<span class="sc">$</span>features</span>
+<span id="cb40-2"><a href="#cb40-2"></a></span>
+<span id="cb40-3"><a href="#cb40-3"></a>climate_stations <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
+<span id="cb40-4"><a href="#cb40-4"></a>  climate_stations,</span>
+<span id="cb40-5"><a href="#cb40-5"></a>  <span class="sc">~</span> <span class="fu">discard</span>(.x<span class="sc">$</span>properties, is.null) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb40-6"><a href="#cb40-6"></a>    <span class="fu">mutate</span>(<span class="at">lat =</span> .x<span class="sc">$</span>geometry<span class="sc">$</span>coordinates[[<span class="dv">2</span>]],</span>
+<span id="cb40-7"><a href="#cb40-7"></a>           <span class="at">lon =</span> .x<span class="sc">$</span>geometry<span class="sc">$</span>coordinates[[<span class="dv">1</span>]])</span>
+<span id="cb40-8"><a href="#cb40-8"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb40-9"><a href="#cb40-9"></a>  janitor<span class="sc">::</span><span class="fu">clean_names</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb40-10"><a href="#cb40-10"></a>  <span class="co"># Drop the incorrect latitude and longitude</span></span>
+<span id="cb40-11"><a href="#cb40-11"></a>  <span class="fu">select</span>(<span class="sc">-</span>latitude, <span class="sc">-</span>longitude)</span>
+<span id="cb40-12"><a href="#cb40-12"></a></span>
+<span id="cb40-13"><a href="#cb40-13"></a><span class="fu">glimpse</span>(climate_stations)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>Rows: 8,552
+Columns: 32
+$ stn_id                   &lt;int&gt; 8496, 9005, 10205, 6149, 6154, 6174, 6177, 61…
+$ station_name             &lt;chr&gt; "CARLETON SUR MER", "PORT COLBORNE (AUT)", "K…
+$ prov_state_terr_code     &lt;chr&gt; "QC", "ON", "QC", "NB", "NB", "NB", "NB", "NB…
+$ eng_prov_name            &lt;chr&gt; "QUEBEC", "ONTARIO", "QUEBEC", "NEW BRUNSWICK…
+$ fre_prov_name            &lt;chr&gt; "QUÉBEC", "ONTARIO", "QUÉBEC", "NOUVEAU-BRUNS…
+$ country                  &lt;chr&gt; "CAN", "CAN", "CAN", "CAN", "CAN", "CAN", "CA…
+$ timezone                 &lt;chr&gt; "EST", "EST", "EST", "AST", "AST", "AST", "AS…
+$ elevation                &lt;chr&gt; "541.00", "183.50", "123.80", "152.40", "173.…
+$ climate_identifier       &lt;chr&gt; "705AA86", "613F606", "7113382", "8101178", "…
+$ station_type             &lt;chr&gt; "N/A", "Climate-Auto", "N/A", "N/A", "N/A", "…
+$ publication_code         &lt;int&gt; 1, NA, NA, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+$ display_code             &lt;int&gt; 9, NA, NA, 7, 9, 5, 9, 7, 7, 9, 9, 8, 9, 9, 1…
+$ first_date               &lt;chr&gt; "1968-10-01 00:00:00", "1992-12-02 00:00:00",…
+$ last_date                &lt;chr&gt; "1968-10-31 00:00:00", "2022-04-24 12:30:02",…
+$ dly_first_date           &lt;chr&gt; "1968-10-01 00:00:00", "1992-12-02 00:00:00",…
+$ dly_last_date            &lt;chr&gt; "1968-10-31 00:00:00", "2022-04-24 00:00:00",…
+$ has_monthly_summary      &lt;chr&gt; "Y", "Y", "N", "Y", "Y", "Y", "Y", "Y", "Y", …
+$ has_normals_data         &lt;chr&gt; "N", "N", "N", "N", "N", "N", "N", "N", "N", …
+$ has_hourly_data          &lt;chr&gt; "N", "Y", "Y", "N", "N", "N", "N", "N", "N", …
+$ lat                      &lt;dbl&gt; 48.13333, 42.86667, 60.02306, 45.93333, 47.36…
+$ lon                      &lt;dbl&gt; -66.11667, -79.25000, -70.00361, -64.78333, -…
+$ tc_identifier            &lt;chr&gt; NA, "WPC", "YAS", NA, NA, NA, NA, NA, NA, NA,…
+$ wmo_identifier           &lt;chr&gt; NA, "71463", NA, NA, NA, NA, NA, NA, NA, NA, …
+$ eng_stn_operator_acronym &lt;chr&gt; NA, "ECCC - MSC", "DND", NA, NA, NA, NA, NA, …
+$ fre_stn_operator_acronym &lt;chr&gt; NA, "ECCC - SMC", "MDN", NA, NA, NA, NA, NA, …
+$ eng_stn_operator_name    &lt;chr&gt; NA, "Environment and Climate Change Canada - …
+$ fre_stn_operator_name    &lt;chr&gt; NA, "Environnement et Changement climatique C…
+$ hly_first_date           &lt;chr&gt; NA, "1994-02-01 02:00:00", "1992-10-21 07:00:…
+$ hly_last_date            &lt;chr&gt; NA, "2022-04-24 12:30:02", "2015-09-10 13:00:…
+$ mly_first_date           &lt;chr&gt; NA, "2006-04-01 00:00:00", NA, "1964-01-01 00…
+$ mly_last_date            &lt;chr&gt; NA, "2006-12-01 00:00:00", NA, "1979-12-01 00…
+$ normal_code              &lt;chr&gt; NA, NA, NA, "F", NA, "D", NA, "F", "F", NA, N…</code></pre>
+</div>
+</div>
+</section>
+<section id="getting-the-weather-data-2" class="slide level2">
+<h2>Getting the weather data</h2>
+<ul>
+<li>Top 5 closest climate stations to the bike counters</li>
+</ul>
+<div class="cell">
+
+</div>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1"></a><span class="fu">ggmap</span>(halifax_map) <span class="sc">+</span></span>
+<span id="cb42-2"><a href="#cb42-2"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> d, <span class="at">size =</span> <span class="dv">8</span>,</span>
+<span id="cb42-3"><a href="#cb42-3"></a>             <span class="fu">aes</span>(<span class="at">fill =</span> group), <span class="at">shape =</span> <span class="dv">21</span>, <span class="at">color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb42-4"><a href="#cb42-4"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(</span>
+<span id="cb42-5"><a href="#cb42-5"></a>    <span class="at">data =</span> d,</span>
+<span id="cb42-6"><a href="#cb42-6"></a>    <span class="fu">aes</span>(<span class="at">color =</span> group, <span class="at">label =</span> <span class="fu">str_trunc</span>(label, <span class="at">width =</span> <span class="dv">25</span>)),</span>
+<span id="cb42-7"><a href="#cb42-7"></a>    <span class="at">box.padding =</span> <span class="fl">1.0</span>, <span class="at">size =</span> <span class="dv">6</span></span>
+<span id="cb42-8"><a href="#cb42-8"></a>  ) <span class="sc">+</span></span>
+<span id="cb42-9"><a href="#cb42-9"></a>  <span class="fu">theme_void</span>(<span class="at">base_size =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
+<span id="cb42-10"><a href="#cb42-10"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-42-1.png" width="960"></p>
+</div>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1"></a>climate_stations_halifax <span class="sc">%&gt;%</span></span>
+<span id="cb43-2"><a href="#cb43-2"></a>  <span class="fu">transmute</span>(station_name, <span class="at">lat =</span> <span class="fu">round</span>(lat, <span class="dv">2</span>), <span class="at">lon =</span> <span class="fu">round</span>(lon, <span class="dv">2</span>),</span>
+<span id="cb43-3"><a href="#cb43-3"></a>            <span class="at">first_date =</span> <span class="fu">as.Date</span>(first_date), <span class="at">last_date =</span> <span class="fu">as.Date</span>(last_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb43-4"><a href="#cb43-4"></a>  <span class="fu">kable</span>(<span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb43-5"><a href="#cb43-5"></a>  <span class="fu">kable_styling</span>(<span class="at">font_size =</span> <span class="dv">35</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+
+<table class="table" style="font-size: 35px; margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> station_name </th>
+   <th style="text-align:right;"> lat </th>
+   <th style="text-align:right;"> lon </th>
+   <th style="text-align:left;"> first_date </th>
+   <th style="text-align:left;"> last_date </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> HALIFAX CITADEL </td>
+   <td style="text-align:right;"> 44.65 </td>
+   <td style="text-align:right;"> -63.58 </td>
+   <td style="text-align:left;"> 1933-01-01 </td>
+   <td style="text-align:left;"> 2002-01-31 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> HALIFAX DOCKYARD </td>
+   <td style="text-align:right;"> 44.66 </td>
+   <td style="text-align:right;"> -63.58 </td>
+   <td style="text-align:left;"> 2004-09-24 </td>
+   <td style="text-align:left;"> 2022-04-24 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> HALIFAX </td>
+   <td style="text-align:right;"> 44.65 </td>
+   <td style="text-align:right;"> -63.57 </td>
+   <td style="text-align:left;"> 1939-01-01 </td>
+   <td style="text-align:left;"> 1974-12-01 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> HALIFAX </td>
+   <td style="text-align:right;"> 44.65 </td>
+   <td style="text-align:right;"> -63.60 </td>
+   <td style="text-align:left;"> 1871-01-01 </td>
+   <td style="text-align:left;"> 1933-12-01 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> DARTMOUTH </td>
+   <td style="text-align:right;"> 44.67 </td>
+   <td style="text-align:right;"> -63.57 </td>
+   <td style="text-align:left;"> 1990-01-01 </td>
+   <td style="text-align:left;"> 1991-12-31 </td>
+  </tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="getting-the-weather-data-3" class="slide level2">
+<h2>Getting the weather data</h2>
+<ul>
+<li>Top 5 closest climate stations to the bike counters <em>with recent data</em></li>
+</ul>
+<div class="cell">
+
+</div>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1"></a><span class="fu">ggmap</span>(hrm_map) <span class="sc">+</span></span>
+<span id="cb44-2"><a href="#cb44-2"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> d, <span class="at">size =</span> <span class="dv">6</span>,</span>
+<span id="cb44-3"><a href="#cb44-3"></a>             <span class="fu">aes</span>(<span class="at">fill =</span> group), <span class="at">shape =</span> <span class="dv">21</span>, <span class="at">color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb44-4"><a href="#cb44-4"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(</span>
+<span id="cb44-5"><a href="#cb44-5"></a>    <span class="at">data =</span> <span class="fu">filter</span>(d, group <span class="sc">!=</span> <span class="st">"bike counters"</span>),</span>
+<span id="cb44-6"><a href="#cb44-6"></a>    <span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">str_trunc</span>(label, <span class="at">width =</span> <span class="dv">25</span>)),</span>
+<span id="cb44-7"><a href="#cb44-7"></a>    <span class="at">box.padding =</span> <span class="fl">0.5</span>, <span class="at">force =</span> <span class="dv">15</span>, <span class="at">color =</span> <span class="st">"#779ecb"</span>, <span class="at">size =</span> <span class="dv">8</span></span>
+<span id="cb44-8"><a href="#cb44-8"></a>  ) <span class="sc">+</span></span>
+<span id="cb44-9"><a href="#cb44-9"></a>  <span class="fu">theme_void</span>(<span class="at">base_size =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
+<span id="cb44-10"><a href="#cb44-10"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb44-11"><a href="#cb44-11"></a>  <span class="fu">ylim</span>(<span class="fl">44.58</span>, <span class="fl">44.69</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="hfx-bike-ridership_files/figure-revealjs/unnamed-chunk-46-1.png" width="960"></p>
+</div>
+</div>
+</div><div class="column" style="width:50%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1"></a>climate_stations_halifax <span class="sc">%&gt;%</span></span>
+<span id="cb45-2"><a href="#cb45-2"></a>  <span class="fu">transmute</span>(station_name, <span class="at">lat =</span> <span class="fu">round</span>(lat, <span class="dv">2</span>), <span class="at">lon =</span> <span class="fu">round</span>(lon, <span class="dv">2</span>),</span>
+<span id="cb45-3"><a href="#cb45-3"></a>            <span class="at">first_date =</span> <span class="fu">as.Date</span>(first_date), <span class="at">last_date =</span> <span class="fu">as.Date</span>(last_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb45-4"><a href="#cb45-4"></a>  <span class="fu">kable</span>(<span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb45-5"><a href="#cb45-5"></a>  <span class="fu">kable_styling</span>(<span class="at">font_size =</span> <span class="dv">35</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+
+<table class="table" style="font-size: 35px; margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> station_name </th>
+   <th style="text-align:right;"> lat </th>
+   <th style="text-align:right;"> lon </th>
+   <th style="text-align:left;"> first_date </th>
+   <th style="text-align:left;"> last_date </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> HALIFAX DOCKYARD </td>
+   <td style="text-align:right;"> 44.66 </td>
+   <td style="text-align:right;"> -63.58 </td>
+   <td style="text-align:left;"> 2004-09-24 </td>
+   <td style="text-align:left;"> 2022-04-24 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> HALIFAX WINDSOR PARK </td>
+   <td style="text-align:right;"> 44.66 </td>
+   <td style="text-align:right;"> -63.61 </td>
+   <td style="text-align:left;"> 2004-09-24 </td>
+   <td style="text-align:left;"> 2022-04-24 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> SHEARWATER JETTY </td>
+   <td style="text-align:right;"> 44.63 </td>
+   <td style="text-align:right;"> -63.52 </td>
+   <td style="text-align:left;"> 1994-02-01 </td>
+   <td style="text-align:left;"> 2022-04-24 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> MCNABS ISLAND (AUT) </td>
+   <td style="text-align:right;"> 44.60 </td>
+   <td style="text-align:right;"> -63.53 </td>
+   <td style="text-align:left;"> 1999-10-13 </td>
+   <td style="text-align:left;"> 2022-04-24 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> HALIFAX KOOTENAY </td>
+   <td style="text-align:right;"> 44.59 </td>
+   <td style="text-align:right;"> -63.55 </td>
+   <td style="text-align:left;"> 2004-09-28 </td>
+   <td style="text-align:left;"> 2022-04-24 </td>
+  </tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="packages" class="slide level2">
+<h2>Packages</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1"></a><span class="fu">as.data.frame</span>(<span class="fu">installed.packages</span>()[,<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span><span class="sc">:</span><span class="dv">4</span>)])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div class="kable-table">
 
@@ -4931,798 +6256,6 @@ utils
 </td>
 <td style="text-align:left;">
 base
-</td>
-</tr>
-</tbody>
-
-</table>
-</div>
-</div>
-</div>
-</section>
-<section id="background" class="slide level2">
-<h2>Background</h2>
-<div class="columns">
-<div class="column" style="width:50%;">
-<p><img data-src="images/cbc-article.PNG"></p>
-</div><div class="column" style="width:50%;">
-<ul>
-<li>Starting in 2020, the city made bike counter data available via their open data platform</li>
-</ul>
-<p><img data-src="images/pneumatic-tube-counter.png"></p>
-<p><img data-src="images/bike-counter.jpg"></p>
-</div>
-</div>
-<aside class="notes">
-<ul>
-<li>In 2016, the city of Halifax installed its first bike counter to track cyclists</li>
-</ul>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
-</section>
-<section id="background-1" class="slide level2">
-<h2>Background</h2>
-<div class="columns">
-<div class="column" style="width:50%;">
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="images/halifax-open-data-logo.PNG"></p>
-</figure>
-</div>
-</div><div class="column" style="width:50%;">
-
-</div>
-</div>
-<aside class="notes">
-<ul>
-<li>In 2019, the city of Halifax installed its first bike counter to track cyclists</li>
-</ul>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
-</section>
-<section id="motivation" class="slide level2">
-<h2>Motivation</h2>
-<ol type="1">
-<li>To work with data that was interesting to me</li>
-<li>To practice machine learning (and <code>tidymodels</code>)</li>
-<li>To learn how to deploy a model on Google Cloud</li>
-</ol>
-</section>
-<section id="motivation-1" class="slide level2">
-<h2>Motivation</h2>
-<ol type="1">
-<li>Getting and exploring the data</li>
-<li>Modeling</li>
-<li>Deployment</li>
-</ol>
-</section>
-<section id="getting-the-data" class="slide level2">
-<h2>Getting the data</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a>query_url <span class="ot">&lt;-</span> <span class="st">"https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Bicycle_Counts/FeatureServer/0/query?where=1%3D1&amp;outFields=*&amp;outSR=4326&amp;f=json"</span></span>
-<span id="cb2-2"><a href="#cb2-2"></a>resp <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(query_url)</span>
-<span id="cb2-3"><a href="#cb2-3"></a>resp</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>Response [https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Bicycle_Counts/FeatureServer/0/query?where=1%3D1&amp;outFields=*&amp;outSR=4326&amp;f=json]
-  Date: 2022-04-27 03:26
-  Status: 200
-  Content-Type: application/json; charset=utf-8
-  Size: 579 kB</code></pre>
-</div>
-</div>
-</section>
-<section id="getting-the-data-1" class="slide level2">
-<h2>Getting the data</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a>parsed_content <span class="ot">&lt;-</span> <span class="fu">content</span>(resp)</span>
-<span id="cb4-2"><a href="#cb4-2"></a><span class="fu">str</span>(parsed_content, <span class="at">max.level =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>List of 6
- $ objectIdFieldName    : chr "ObjectId"
- $ uniqueIdField        :List of 2
- $ globalIdFieldName    : chr ""
- $ fields               :List of 11
- $ exceededTransferLimit: logi TRUE
- $ features             :List of 2000</code></pre>
-</div>
-</div>
-<div class="fragment">
-<div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1"></a>parsed_content<span class="sc">$</span>features[[<span class="dv">1</span>]] <span class="sc">%&gt;%</span> <span class="fu">str</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>List of 1
- $ attributes:List of 11
-  ..$ CHANNEL_ID       : chr "100059339"
-  ..$ CHANNEL_NAME     : chr "Hollis St"
-  ..$ SERIAL_NUMBER    : chr "X2H20032465"
-  ..$ SITE_NAME        : chr "Hollis St"
-  ..$ LATITUDE         : num 44.6
-  ..$ LONGITUDE        : num -63.6
-  ..$ INSTALLATION_DATE: num 1.59e+12
-  ..$ COUNT_DATETIME   : num 1.6e+12
-  ..$ COUNTER_TYPE     : chr "Bicycle"
-  ..$ COUNTER_VALUE    : int 2
-  ..$ ObjectId         : int 1</code></pre>
-</div>
-</div>
-</div>
-</section>
-<section id="getting-the-data-2" class="slide level2">
-<h2>Getting the data</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a>bike_counts <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
-<span id="cb8-2"><a href="#cb8-2"></a>  parsed_content<span class="sc">$</span>features,</span>
-<span id="cb8-3"><a href="#cb8-3"></a>  <span class="sc">~</span> <span class="fu">as_tibble</span>(.x<span class="sc">$</span>attributes)</span>
-<span id="cb8-4"><a href="#cb8-4"></a>)</span>
-<span id="cb8-5"><a href="#cb8-5"></a><span class="fu">glimpse</span>(bike_counts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Rows: 2,000
-Columns: 11
-$ CHANNEL_ID        &lt;chr&gt; "100059339", "100059339", "100059339", "100059339", …
-$ CHANNEL_NAME      &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
-$ SERIAL_NUMBER     &lt;chr&gt; "X2H20032465", "X2H20032465", "X2H20032465", "X2H200…
-$ SITE_NAME         &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
-$ LATITUDE          &lt;dbl&gt; 44.64799, 44.64799, 44.64799, 44.64799, 44.64799, 44…
-$ LONGITUDE         &lt;dbl&gt; -63.57352, -63.57352, -63.57352, -63.57352, -63.5735…
-$ INSTALLATION_DATE &lt;dbl&gt; 1.594166e+12, 1.594166e+12, 1.594166e+12, 1.594166e+…
-$ COUNT_DATETIME    &lt;dbl&gt; 1.595966e+12, 1.595970e+12, 1.595974e+12, 1.595977e+…
-$ COUNTER_TYPE      &lt;chr&gt; "Bicycle", "Bicycle", "Bicycle", "Bicycle", "Bicycle…
-$ COUNTER_VALUE     &lt;int&gt; 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 6, 4, 13, 8, 5, 6, 8, …
-$ ObjectId          &lt;int&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1…</code></pre>
-</div>
-</div>
-</section>
-<section id="getting-the-data-3" class="slide level2">
-<h2>Getting the data</h2>
-<ul>
-<li><code>exceededTransferLimit = TRUE</code> tells us that 2000 records is the limit of a single API request.</li>
-<li>How many total records are available?</li>
-</ul>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1"></a>n_records <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(<span class="fu">paste0</span>(query_url,</span>
-<span id="cb10-2"><a href="#cb10-2"></a>                              <span class="st">"&amp;returnCountOnly=true"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb10-3"><a href="#cb10-3"></a>  <span class="fu">content</span>(<span class="at">as =</span> <span class="st">"parsed"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb10-4"><a href="#cb10-4"></a>  <span class="fu">unlist</span>(<span class="at">use.names =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb10-5"><a href="#cb10-5"></a>n_records</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 124356</code></pre>
-</div>
-</div>
-</section>
-<section id="getting-the-data-4" class="slide level2">
-<h2>Getting the data</h2>
-<ul>
-<li>Write a function to get 2000 records at a time and iterate</li>
-</ul>
-<div class="cell">
-<details>
-<summary>get_bike_data()</summary>
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a>get_bike_data <span class="ot">&lt;-</span> <span class="cf">function</span>(offset) {</span>
-<span id="cb12-2"><a href="#cb12-2"></a>  <span class="co"># Need to prevent scientific notation, e.g. "1e+05" instead of "100000"</span></span>
-<span id="cb12-3"><a href="#cb12-3"></a>  offset <span class="ot">&lt;-</span> <span class="fu">format</span>(offset, <span class="at">scientific =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb12-4"><a href="#cb12-4"></a>  </span>
-<span id="cb12-5"><a href="#cb12-5"></a>  parsed_content <span class="ot">&lt;-</span> httr<span class="sc">::</span><span class="fu">GET</span>(<span class="fu">paste0</span>(query_url, <span class="st">"&amp;resultOffset="</span>, offset)) <span class="sc">%&gt;%</span></span>
-<span id="cb12-6"><a href="#cb12-6"></a>    <span class="fu">content</span>(<span class="at">as =</span> <span class="st">"parsed"</span>)</span>
-<span id="cb12-7"><a href="#cb12-7"></a>  </span>
-<span id="cb12-8"><a href="#cb12-8"></a>  <span class="fu">map_dfr</span>(</span>
-<span id="cb12-9"><a href="#cb12-9"></a>    parsed_content<span class="sc">$</span>features,</span>
-<span id="cb12-10"><a href="#cb12-10"></a>    <span class="sc">~</span> <span class="fu">as_tibble</span>(.x<span class="sc">$</span>attributes)</span>
-<span id="cb12-11"><a href="#cb12-11"></a>  ) </span>
-<span id="cb12-12"><a href="#cb12-12"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb13" data-code-line-numbers="|5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a>bike_data <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
-<span id="cb13-2"><a href="#cb13-2"></a>  <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fu">ceiling</span>(n_records <span class="sc">/</span> <span class="dv">2000</span>)),</span>
-<span id="cb13-3"><a href="#cb13-3"></a>  <span class="sc">~</span> <span class="fu">get_bike_data</span>(<span class="at">offset =</span> .x <span class="sc">*</span> <span class="dv">2000</span>)</span>
-<span id="cb13-4"><a href="#cb13-4"></a>)</span>
-<span id="cb13-5"><a href="#cb13-5"></a>bike_data <span class="ot">&lt;-</span> janitor<span class="sc">::</span><span class="fu">clean_names</span>(bike_data)</span>
-<span id="cb13-6"><a href="#cb13-6"></a><span class="fu">glimpse</span>(bike_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>Rows: 124,356
-Columns: 11
-$ channel_id        &lt;chr&gt; "100059339", "100059339", "100059339", "100059339", …
-$ channel_name      &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
-$ serial_number     &lt;chr&gt; "X2H20032465", "X2H20032465", "X2H20032465", "X2H200…
-$ site_name         &lt;chr&gt; "Hollis St", "Hollis St", "Hollis St", "Hollis St", …
-$ latitude          &lt;dbl&gt; 44.64799, 44.64799, 44.64799, 44.64799, 44.64799, 44…
-$ longitude         &lt;dbl&gt; -63.57352, -63.57352, -63.57352, -63.57352, -63.5735…
-$ installation_date &lt;dbl&gt; 1.594166e+12, 1.594166e+12, 1.594166e+12, 1.594166e+…
-$ count_datetime    &lt;dbl&gt; 1.595966e+12, 1.595970e+12, 1.595974e+12, 1.595977e+…
-$ counter_type      &lt;chr&gt; "Bicycle", "Bicycle", "Bicycle", "Bicycle", "Bicycle…
-$ counter_value     &lt;int&gt; 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 6, 4, 13, 8, 5, 6, 8, …
-$ object_id         &lt;int&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1…</code></pre>
-</div>
-</div>
-</section>
-<section id="exploring-the-data" class="slide level2">
-<h2>Exploring the data</h2>
-<div class="cell">
-
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a>bike_data <span class="sc">%&gt;%</span> <span class="fu">count</span>(site_name, channel_name, <span class="at">name =</span> <span class="st">"n_records"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div class="kable-table">
-
-<table>
-<thead>
-<tr>
-<th style="text-align:left;">
-site_name
-</th>
-<th style="text-align:left;">
-channel_name
-</th>
-<th style="text-align:right;">
-n_records
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway
-</td>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway Northbound
-</td>
-<td style="text-align:right;">
-6988
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway
-</td>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway Southbound
-</td>
-<td style="text-align:right;">
-6988
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Hollis St
-</td>
-<td style="text-align:left;">
-Hollis St
-</td>
-<td style="text-align:right;">
-15748
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-South Park St
-</td>
-<td style="text-align:left;">
-South Park St Northbound
-</td>
-<td style="text-align:right;">
-23212
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-South Park St
-</td>
-<td style="text-align:left;">
-South Park St Southbound
-</td>
-<td style="text-align:right;">
-23212
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Vernon St
-</td>
-<td style="text-align:left;">
-Vernon St Northbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Vernon St
-</td>
-<td style="text-align:left;">
-Vernon St Southbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Windsor St
-</td>
-<td style="text-align:left;">
-Windsor St Northbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Windsor St
-</td>
-<td style="text-align:left;">
-Windsor St Southbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-</tbody>
-
-</table>
-</div>
-</div>
-</div>
-<div class="fragment">
-<ul>
-<li>5 sites</li>
-<li>4 out of 5 have two “channels”</li>
-<li>South Park St has the most recent</li>
-</ul>
-</div>
-</section>
-<section id="exploring-the-data-1" class="slide level2">
-<h2>Exploring the data</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a>bike_data <span class="sc">%&gt;%</span></span>
-<span id="cb16-2"><a href="#cb16-2"></a>  <span class="fu">group_by</span>(site_name, installation_date) <span class="sc">%&gt;%</span></span>
-<span id="cb16-3"><a href="#cb16-3"></a>  <span class="fu">summarise</span>(<span class="at">min_count_date =</span> <span class="fu">min</span>(count_date), <span class="at">max_count_date =</span> <span class="fu">max</span>(count_date),</span>
-<span id="cb16-4"><a href="#cb16-4"></a>            <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div class="kable-table">
-
-<table>
-<thead>
-<tr>
-<th style="text-align:left;">
-site_name
-</th>
-<th style="text-align:left;">
-installation_date
-</th>
-<th style="text-align:left;">
-min_count_date
-</th>
-<th style="text-align:left;">
-max_count_date
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway
-</td>
-<td style="text-align:left;">
-2021-07-08
-</td>
-<td style="text-align:left;">
-2021-07-08
-</td>
-<td style="text-align:left;">
-2022-04-25
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Hollis St
-</td>
-<td style="text-align:left;">
-2020-07-08
-</td>
-<td style="text-align:left;">
-2020-07-08
-</td>
-<td style="text-align:left;">
-2022-04-25
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-South Park St
-</td>
-<td style="text-align:left;">
-2019-09-01
-</td>
-<td style="text-align:left;">
-2019-09-01
-</td>
-<td style="text-align:left;">
-2022-04-25
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Vernon St
-</td>
-<td style="text-align:left;">
-2020-12-09
-</td>
-<td style="text-align:left;">
-2020-12-09
-</td>
-<td style="text-align:left;">
-2022-04-25
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Windsor St
-</td>
-<td style="text-align:left;">
-2020-12-09
-</td>
-<td style="text-align:left;">
-2020-12-09
-</td>
-<td style="text-align:left;">
-2022-04-25
-</td>
-</tr>
-</tbody>
-
-</table>
-</div>
-</div>
-</div>
-</section>
-<section id="test" class="slide level2">
-<h2>Test</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a>bike_data <span class="sc">%&gt;%</span> <span class="fu">count</span>(site_name, channel_name, <span class="at">name =</span> <span class="st">"n_records"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb17-2"><a href="#cb17-2"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-
-<table>
- <thead>
-  <tr>
-   <th style="text-align:left;"> site_name </th>
-   <th style="text-align:left;"> channel_name </th>
-   <th style="text-align:right;"> n_records </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway </td>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway Northbound </td>
-   <td style="text-align:right;"> 6988 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway </td>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway Southbound </td>
-   <td style="text-align:right;"> 6988 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Hollis St </td>
-   <td style="text-align:left;"> Hollis St </td>
-   <td style="text-align:right;"> 15748 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> South Park St </td>
-   <td style="text-align:left;"> South Park St Northbound </td>
-   <td style="text-align:right;"> 23212 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> South Park St </td>
-   <td style="text-align:left;"> South Park St Southbound </td>
-   <td style="text-align:right;"> 23212 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Vernon St </td>
-   <td style="text-align:left;"> Vernon St Northbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Vernon St </td>
-   <td style="text-align:left;"> Vernon St Southbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Windsor St </td>
-   <td style="text-align:left;"> Windsor St Northbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Windsor St </td>
-   <td style="text-align:left;"> Windsor St Southbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-</tbody>
-</table>
-
-</div>
-</div>
-</section>
-<section id="test-1" class="slide level2">
-<h2>Test</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a>bike_data <span class="sc">%&gt;%</span> <span class="fu">count</span>(site_name, channel_name, <span class="at">name =</span> <span class="st">"n_records"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb18-2"><a href="#cb18-2"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">booktabs =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-
-<table>
- <thead>
-  <tr>
-   <th style="text-align:left;"> site_name </th>
-   <th style="text-align:left;"> channel_name </th>
-   <th style="text-align:right;"> n_records </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway </td>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway Northbound </td>
-   <td style="text-align:right;"> 6988 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway </td>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway Southbound </td>
-   <td style="text-align:right;"> 6988 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Hollis St </td>
-   <td style="text-align:left;"> Hollis St </td>
-   <td style="text-align:right;"> 15748 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> South Park St </td>
-   <td style="text-align:left;"> South Park St Northbound </td>
-   <td style="text-align:right;"> 23212 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> South Park St </td>
-   <td style="text-align:left;"> South Park St Southbound </td>
-   <td style="text-align:right;"> 23212 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Vernon St </td>
-   <td style="text-align:left;"> Vernon St Northbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Vernon St </td>
-   <td style="text-align:left;"> Vernon St Southbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Windsor St </td>
-   <td style="text-align:left;"> Windsor St Northbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Windsor St </td>
-   <td style="text-align:left;"> Windsor St Southbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-</tbody>
-</table>
-
-</div>
-</div>
-</section>
-<section id="test-2" class="slide level2">
-<h2>Test</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a>bike_data <span class="sc">%&gt;%</span> <span class="fu">count</span>(site_name, channel_name, <span class="at">name =</span> <span class="st">"n_records"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb19-2"><a href="#cb19-2"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-
-<table>
- <thead>
-  <tr>
-   <th style="text-align:left;"> site_name </th>
-   <th style="text-align:left;"> channel_name </th>
-   <th style="text-align:right;"> n_records </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway </td>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway Northbound </td>
-   <td style="text-align:right;"> 6988 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway </td>
-   <td style="text-align:left;"> Dartmouth Harbourfront Greenway Southbound </td>
-   <td style="text-align:right;"> 6988 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Hollis St </td>
-   <td style="text-align:left;"> Hollis St </td>
-   <td style="text-align:right;"> 15748 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> South Park St </td>
-   <td style="text-align:left;"> South Park St Northbound </td>
-   <td style="text-align:right;"> 23212 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> South Park St </td>
-   <td style="text-align:left;"> South Park St Southbound </td>
-   <td style="text-align:right;"> 23212 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Vernon St </td>
-   <td style="text-align:left;"> Vernon St Northbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Vernon St </td>
-   <td style="text-align:left;"> Vernon St Southbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Windsor St </td>
-   <td style="text-align:left;"> Windsor St Northbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Windsor St </td>
-   <td style="text-align:left;"> Windsor St Southbound </td>
-   <td style="text-align:right;"> 12052 </td>
-  </tr>
-</tbody>
-</table>
-
-</div>
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a>  <span class="co">#kableExtra::kable_styling()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
-<section id="test-3" class="slide level2">
-<h2>Test</h2>
-<div class="cell" data-df-print="paged">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a>bike_data <span class="sc">%&gt;%</span> <span class="fu">count</span>(site_name, channel_name, <span class="at">name =</span> <span class="st">"n_records"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div class="kable-table">
-
-<table>
-<thead>
-<tr>
-<th style="text-align:left;">
-site_name
-</th>
-<th style="text-align:left;">
-channel_name
-</th>
-<th style="text-align:right;">
-n_records
-</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway
-</td>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway Northbound
-</td>
-<td style="text-align:right;">
-6988
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway
-</td>
-<td style="text-align:left;">
-Dartmouth Harbourfront Greenway Southbound
-</td>
-<td style="text-align:right;">
-6988
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Hollis St
-</td>
-<td style="text-align:left;">
-Hollis St
-</td>
-<td style="text-align:right;">
-15748
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-South Park St
-</td>
-<td style="text-align:left;">
-South Park St Northbound
-</td>
-<td style="text-align:right;">
-23212
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-South Park St
-</td>
-<td style="text-align:left;">
-South Park St Southbound
-</td>
-<td style="text-align:right;">
-23212
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Vernon St
-</td>
-<td style="text-align:left;">
-Vernon St Northbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Vernon St
-</td>
-<td style="text-align:left;">
-Vernon St Southbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Windsor St
-</td>
-<td style="text-align:left;">
-Windsor St Northbound
-</td>
-<td style="text-align:right;">
-12052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-Windsor St
-</td>
-<td style="text-align:left;">
-Windsor St Southbound
-</td>
-<td style="text-align:right;">
-12052
 </td>
 </tr>
 </tbody>

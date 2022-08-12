@@ -7,6 +7,8 @@ format:
     height: 1080
     width: 1920
     df-print: kable
+    # code-fold: true
+    # code-summary: "Code"
 execute: 
   echo: true
   eval: true
@@ -15,24 +17,25 @@ execute:
 ```{r}
 #| label: setup
 #| include: false
+
 #renv::use(lockfile = "../renv.lock")
 
 library(tidyverse)
 library(here)
 library(httr)
-library(gt)
+library(lubridate)
+library(knitr)
 library(kableExtra)
+library(ggmap)
+library(glue)
 
-options(knitr.table.linesep = "")
+library(dunnr)
+extrafont::loadfonts(device = "win", quiet = TRUE)
+theme_set(theme_td(base_size = 14))
+set_geom_fonts()
+set_palette()
+
 ```
-
-## Packacges
-
-```{r}
-as.data.frame(installed.packages()[,c(1,3:4)])
-```
-
-
 
 ## Background
 
@@ -138,6 +141,7 @@ glimpse(bike_counts)
 
 ```{r}
 #| eval: false
+#| code-line-numbers: "|2"
 n_records <- httr::GET(paste0(query_url,
                               "&returnCountOnly=true")) %>%
   content(as = "parsed") %>%
@@ -208,6 +212,8 @@ bike_data <- bike_data %>%
   select(-serial_number, -counter_type)
 ```
 
+* How many records?
+
 ```{r}
 bike_data %>% count(site_name, channel_name, name = "n_records")
 ```
@@ -220,6 +226,8 @@ bike_data %>% count(site_name, channel_name, name = "n_records")
 
 ## Exploring the data
 
+* Dates?
+
 ```{r}
 bike_data %>%
   group_by(site_name, installation_date) %>%
@@ -227,33 +235,632 @@ bike_data %>%
             .groups = "drop")
 ```
 
-## Test
+## Exploring the data
+
+* Where exactly are the sites?
 
 ```{r}
-bike_data %>% count(site_name, channel_name, name = "n_records") %>%
-  knitr::kable()
+site_locs <- bike_data %>%
+  distinct(site_name, lat = latitude, lon = longitude)
+
+mean_lat <- mean(site_locs$lat)
+mean_lon <- mean(site_locs$lon)
+c(mean_lat, mean_lon)
 ```
 
-## Test
+. . .
 
 ```{r}
-bike_data %>% count(site_name, channel_name, name = "n_records") %>%
-  knitr::kable(booktabs = TRUE)
+#| eval: false
+library(ggmap)
+halifax_map <- get_googlemap(c(mean_lon, mean_lat),
+                             zoom = 14, maptype = "satellite")
+
 ```
 
-## Test
+```{r}
+#| echo: false
+halifax_map <- read_rds(here("slides", "data", "halifax-map.rds"))
+```
+
+## Exploring the data
+
+* Where exactly are the sites?
 
 ```{r}
-bike_data %>% count(site_name, channel_name, name = "n_records") %>%
-  knitr::kable()
-  #kableExtra::kable_styling()
+#| code-fold: true
+#| code-summary: Code
+ggmap(halifax_map) +
+  geom_point(data = site_locs, size = 4,
+             aes(fill = site_name), shape = 21, color = "white") +
+  ggrepel::geom_label_repel(
+    data = site_locs,
+    aes(color = site_name, label = str_trunc(site_name, width = 25)),
+    box.padding = 1.0
+  ) +
+  theme_void() +
+  theme(legend.position = "none")
+```
+
+## Exploring the data
+
+* At what frequency are data recorded?
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+bike_data %>%
+  mutate(time_of_day = format(count_datetime, "%H:%M:%S")) %>%
+  count(site_name, time_of_day, name = "n_records") %>%
+  ggplot(aes(y = time_of_day, x = n_records)) +
+  geom_col(aes(fill = str_trunc(site_name, 20))) +
+  labs(fill = NULL) +
+  scale_x_continuous(expand = c(0, 0),
+                     breaks = seq(0, 5000, 1000)) +
+  theme(legend.position = "bottom")
+```
+
+## Exploring the data
+
+* What time zone is this?
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-width: 20
+#| fig-height: 8
+
+bike_data_tod <- bike_data %>%
+  mutate(
+    time_of_day = format(count_datetime, "%H:%M:%S"),
+    # Create a dummy variable with arbitrary date so I can plot time of day
+    time_of_day = lubridate::ymd_hms(
+      paste0("2022-04-22 ", time_of_day)
+    )
+  )
+bike_data_tod %>%
+  group_by(site_name, time_of_day) %>%
+  summarise(
+    n = n(), mean_count = mean(counter_value),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = time_of_day, y = mean_count)) +
+  geom_area(aes(fill = site_name), color = "black") +
+  geom_vline(xintercept = as.POSIXct("2022-04-22 08:00:01", tz = "UTC"),
+             color = "white", size = 1) +
+  geom_vline(xintercept = as.POSIXct("2022-04-22 16:00:01", tz = "UTC"),
+             color = "white", size = 1) +
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  scale_x_datetime(date_breaks = "2 hours", date_labels = "%H") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  dunnr::theme_td(base_size = 30) +
+  theme(legend.position = "none") +
+  dunnr::add_facet_borders()
+```
+
+::: {.notes}
+
+* If they were in UTC time, the peaks would correspond to 11AM and 8PM locally, which would be odd times for peak cyclists.
+* If not Atlantic time (GMT-4), then the next
+
+:::
+
+## Exploring the data
+
+* 4 of the sites have northbound and southbound channels, how do they differ?
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+
+d <- bike_data_tod %>%
+  # Remove Hollis St, which does not have different channels
+  filter(site_name != "Hollis St") %>%
+  mutate(channel_direction = str_extract(channel_name, "(North|South)bound")) %>%
+  group_by(site_name, channel_direction, time_of_day) %>%
+  summarise(mean_count = mean(counter_value), .groups = "drop")
+p <- d %>%
+  ggplot(aes(x = time_of_day, y = mean_count, color = channel_direction)) +
+  geom_area(aes(fill = channel_direction),
+            alpha = 0.2, position = position_dodge(width = 0),
+            show.legend = FALSE) +
+  geom_vline(xintercept = as.POSIXct("2022-04-22 08:00:01", tz = "UTC"),
+             color = "white", size = 1) +
+  geom_vline(xintercept = as.POSIXct("2022-04-22 16:00:01", tz = "UTC"),
+             color = "white", size = 1) +
+  geom_line(size = 1) +
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  scale_x_datetime(date_breaks = "2 hours", date_labels = "%H") +
+  scale_y_continuous(breaks = scales::breaks_pretty(n = 3),
+                     expand = expansion(mult = c(0, 0.1))) +
+  theme(legend.position = "top") +
+  dunnr::add_facet_borders()
+p
+```
+
+## Exploring the data
+
+* 4 of the sites have northbound and southbound channels, how do they differ?
+
+::: columns
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+
+(p %+% filter(d, site_name == "Vernon St")) +
+  theme_td(base_size = 20) +
+  theme(legend.position = "top")
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| warning: false
+#| message: false
+#| fig-width: 10
+#| fig-height: 8
+
+ggmap(halifax_map) +
+  geom_point(data = filter(site_locs, site_name == "Vernon St"), size = 4,
+             aes(fill = site_name), shape = 21, color = "white") +
+  ggrepel::geom_label_repel(
+    data = filter(site_locs, site_name == "Vernon St"),
+    aes(color = site_name, label = site_name),
+    box.padding = 1.0, size = 8
+  ) +
+  theme_void(base_family = 20) +
+  theme(legend.position = "none") +
+  ylim(44.63, 44.645) +
+  xlim(-63.605, -63.575)
 ```
 
 
-## Test
+:::
+:::
+
+## Exploring the data
+
+* Visualizing the daily totals
 
 ```{r}
-#| df-print: paged
-bike_data %>% count(site_name, channel_name, name = "n_records")
+#| echo: false
+bike_data_daily_counts <- bike_data %>%
+  group_by(site_name, installation_date, count_date) %>%
+  summarise(
+    n_records = n(), n_bikes = sum(counter_value), .groups = "drop"
+  )
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-align: center
+p <- bike_data_daily_counts %>%
+  ggplot(aes(x = count_date, y = n_bikes)) +
+  geom_line(aes(color = site_name), show.legend = FALSE) +
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  dunnr::add_facet_borders()
+p
+```
+
+```{r}
+#| echo: false
+
+# Thicker lines for zooming in
+p_thick <- bike_data_daily_counts %>%
+  ggplot(aes(x = count_date, y = n_bikes)) +
+  geom_line(aes(color = site_name), size = 1.5, show.legend = FALSE) +
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  dunnr::add_facet_borders()
+```
+
+## Exploring the data
+
+* First observation: a series of zeroes
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-align: center
+p_thick %+%
+  filter(bike_data_daily_counts,
+         site_name == "South Park St", count_date < "2020-01-01") +
+  scale_color_manual(values = "#709b81")
+```
+
+```{r}
+bike_data_daily_counts <- bike_data_daily_counts %>%
+  filter(!((site_name == "South Park St") & (count_date < "2019-11-23")))
+```
+
+## Exploring the data
+
+* Second observation: a big year-to-year increase on South Park St
+
+::: {.columns}
+::: {.column width="50%"}
+
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-height: 7
+p %+%
+  filter(bike_data_daily_counts, site_name == "South Park St") +
+  scale_color_manual(values = "#709b81") +
+  geom_vline(xintercept = as.Date("2020-09-20"), lty = 2, size = 1.5) +
+  geom_vline(xintercept = as.Date("2020-12-20"), lty = 2, size = 1.5) +
+  theme_td(base_size = 20)
+```
+:::
+::: {.column .fragment width="50%"}
+
+![](images/south-park-lane.PNG)
+
+:::
+:::
+
+
+::: {.notes}
+* Of note: this shows the effect of the pandemic
+:::
+
+## Exploring the data
+
+* Third observation: a large spike in February 2022
+
+::: {.columns}
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-height: 7
+p_thick %+%
+  filter(bike_data_daily_counts,
+         count_date >= "2022-02-01", count_date < "2022-03-01") +
+  geom_vline(xintercept = as.Date("2022-02-12"), lty = 2, size = 1.5) +
+  theme_td(base_size = 20) +
+  dunnr::add_facet_borders()
+```
+:::
+::: {.column .fragment width="50%"}
+
+![](images/convoy-article.PNG)
+
+:::
+:::
+
+
+## Exploring the data
+
+* Overlay years to see seasonality
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-align: center
+bike_data_daily_counts %>%
+  mutate(count_year = year(count_date),
+         # Replace year with 1970 so I can plot on the same scale
+         count_date = as.Date(yday(count_date), origin = "1970-01-01")) %>%
+  ggplot(aes(x = count_date, y = n_bikes, color = factor(count_year))) +
+  geom_line(size = 0.5, alpha = 0.7) +
+  geom_smooth(method = "loess", formula = "y ~ x", show.legend = FALSE) +
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  scale_x_date(date_labels = "%B") +
+  dunnr::add_facet_borders() +
+  guides(color = guide_legend("Year", nrow = 2, by = TRUE)) +
+  theme(legend.position = c(0.6, 0.1)) +
+  labs(x = NULL, color = "Year") +
+  scale_color_brewer(palette = "Set1")
+```
+
+## Exploring the data
+
+* How about day of week?
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-align: center
+bike_data_daily_counts %>%
+  mutate(day_of_week = lubridate::wday(count_date, label = TRUE)) %>%
+  ggplot(aes(y = day_of_week, x = n_bikes)) +
+  geom_jitter(aes(color = site_name), height = 0.2, width = 0, alpha = 0.4) +
+  stat_summary(fun = "mean", geom = "point", size = 2) +
+  facet_wrap(~ str_trunc(site_name, 30), ncol = 3, scales = "free_x") +
+  theme(legend.position = "none") +
+  dunnr::add_facet_borders()
+```
+
+## Exploring the data
+
+* How about holidays?
+
+```{r}
+#| code-overflow: wrap
+#| output-location: column
+library(timeDate)
+
+canada_holidays <-
+  listHolidays(
+    pattern = "^CA|^Christmas|^NewYears|Easter[Sun|Mon]|^GoodFriday|^CaRem"
+  )
+canada_holidays
+```
+
+
+. . .
+
+```{r}
+#| output-location: column
+canada_holiday_dates <-
+  tibble(holiday = canada_holidays) %>%
+  crossing(year = 2019:2022) %>%
+  mutate(
+    holiday_date = map2(
+      year, holiday,
+      ~ as.Date(holiday(.x, .y)@Data)
+    )
+  ) %>%
+  unnest(holiday_date) %>%
+  arrange(holiday_date)
+
+head(canada_holiday_dates)
+```
+
+::: {.notes}
+* Civic provincial holiday is called Natal day in Nova Scotia.  Actually just passed, first Monday of August.
+* Not a stat holiday, but a day off for many employees across Canada.
+:::
+
+
+## Exploring the data
+
+* Is there a holiday effect?
+
+```{r}
+#| code-fold: true
+#| code-summary: Code
+#| fig-align: center
+#| fig-width: 16
+#| fig-height: 8
+canada_holiday_dates %>%
+  filter(holiday_date %in% unique(bike_data_daily_counts$count_date)) %>%
+  mutate(
+    date_window = map(holiday_date, ~ seq.Date(.x - 14, .x + 14, by = "1 day"))
+  ) %>%
+  unnest(date_window) %>%
+  left_join(
+    bike_data_daily_counts, by = c("date_window" = "count_date")
+  ) %>%
+  mutate(is_holiday = holiday_date == date_window) %>%
+  group_by(holiday) %>%
+  mutate(day_from_holiday = as.numeric(date_window - holiday_date)) %>%
+  ungroup() %>%
+  filter(site_name == "South Park St",
+         str_detect(holiday, "Provincial|EasterSunday|ChristmasDay")) %>%
+  ggplot(aes(x = day_from_holiday, y = n_bikes,
+             group = factor(year))) +
+  geom_vline(xintercept = 0, lty = 2, size = 1) +
+  geom_line(aes(color = factor(year)), size = 1.5) +
+  geom_point(aes(color = factor(year)), size = 3) +
+  facet_wrap(~ holiday, scales = "free_y", ncol = 1) +
+  theme_td(base_size = 24) +
+  dunnr::add_facet_borders() +
+  theme(legend.position = "top",
+        panel.grid.major.x = element_line(color = "lightgrey")) +
+  scale_x_continuous(breaks = c(-14, -7, 0, 7, 14)) +
+  scale_color_brewer("Year", palette = "Set1")
+```
+
+::: {.notes}
+* Only showing South Park St (3 years of data) and only 3 out of 12 holidays
+:::
+
+## Getting the weather data
+
+```{r}
+#| eval: false
+#| echo: true
+base_url <- "https://api.weather.gc.ca/"
+resp <- httr::GET(
+  paste0(base_url,
+         "collections/climate-stations/items?f=json&limit=10000")
+)
+resp
+```
+
+```{r}
+#| echo: false
+resp <- read_rds(here("slides", "data", "resp-climate-stations-2.rds"))
+resp
+```
+
+. . .
+
+```{r}
+content_parsed <- content(resp, as = "parsed")
+str(content_parsed, max.level = 1)
+```
+
+## Getting the weather data
+
+```{r}
+#| code-fold: true
+#| eval: false
+climate_stations <- content_parsed$features
+
+climate_stations <- map_dfr(
+  climate_stations,
+  ~ discard(.x$properties, is.null) %>% as_tibble() %>%
+    mutate(lat = .x$geometry$coordinates[[2]],
+           lon = .x$geometry$coordinates[[1]])
+) %>%
+  janitor::clean_names() %>%
+  # Drop the incorrect latitude and longitude
+  select(-latitude, -longitude)
+
+glimpse(climate_stations)
+```
+
+```{r}
+#| echo: false
+climate_stations <- read_rds(here("slides", "data", "climate-stations.rds"))
+glimpse(climate_stations)
+```
+
+## Getting the weather data
+
+* Top 5 closest climate stations to the bike counters
+
+```{r}
+#| echo: false
+climate_stations_halifax <- climate_stations %>%
+  filter(prov_state_terr_code == "NS") %>%
+  mutate(
+    # Compare to the mean lat/lon from the bike counters
+    diff_lat = abs(lat - mean_lat), diff_lon = abs(lon - mean_lon),
+    # Use squared distance to determine the closest points
+    diff2 = diff_lat^2 + diff_lon^2
+  ) %>%
+  # Look at the top 5 for now
+  slice_min(diff2, n = 5)
+
+d <- bind_rows(
+  site_locs %>% mutate(group = "bike counters", label = site_name),
+  climate_stations_halifax %>%
+    transmute(label = glue("{station_name} ({stn_id})"),
+              lat, lon, diff2, group = "climate stations")
+)
+```
+
+::: {.columns}
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| fig-width: 10
+#| fig-height: 8
+
+ggmap(halifax_map) +
+  geom_point(data = d, size = 8,
+             aes(fill = group), shape = 21, color = "white") +
+  ggrepel::geom_label_repel(
+    data = d,
+    aes(color = group, label = str_trunc(label, width = 25)),
+    box.padding = 1.0, size = 6
+  ) +
+  theme_void(base_size = 20) +
+  theme(legend.position = "none")
+```
+
+:::
+
+::: {.column width="50%"}
+
+
+```{r}
+#| code-fold: true
+climate_stations_halifax %>%
+  transmute(station_name, lat = round(lat, 2), lon = round(lon, 2),
+            first_date = as.Date(first_date), last_date = as.Date(last_date)) %>%
+  kable("html") %>%
+  kable_styling(font_size = 35)
+```
+
+:::
+:::
+
+```{r}
+#| echo: false
+#| include: false
+
+# Checking out the dockyard data
+resp <- read_rds(here("slides", "data", "resp-dockyard.rds"))
+content_parsed <- content(resp, as = "parsed")
+daily_climate <- content_parsed$features
+str(daily_climate[[1]]$properties)
+```
+
+## Getting the weather data
+
+* Top 5 closest climate stations to the bike counters *with recent data*
+
+```{r}
+#| echo: false
+climate_stations_halifax <- climate_stations %>%
+  filter(prov_state_terr_code == "NS",
+         # Only include stations with recent data
+         last_date > "2022-04-21") %>%
+  mutate(
+    diff_lat = abs(lat - mean_lat), diff_lon = abs(lon - mean_lon),
+    diff2 = diff_lat^2 + diff_lon^2
+  ) %>%
+  slice_min(diff2, n = 5)
+
+hrm_map <- read_rds(here("slides", "data", "hrm-map.rds"))
+
+d <- bind_rows(
+  site_locs %>% mutate(group = "bike counters", label = site_name),
+  climate_stations_halifax %>%
+    transmute(label = glue("{station_name} ({stn_id})"),
+              lat, lon, diff2, group = "climate stations")
+)
+
+```
+
+::: {.columns}
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| fig-width: 10
+#| fig-height: 8
+ggmap(hrm_map) +
+  geom_point(data = d, size = 6,
+             aes(fill = group), shape = 21, color = "white") +
+  ggrepel::geom_label_repel(
+    data = filter(d, group != "bike counters"),
+    aes(label = str_trunc(label, width = 25)),
+    box.padding = 0.5, force = 15, color = "#779ecb", size = 8
+  ) +
+  theme_void(base_size = 20) +
+  theme(legend.position = "none") +
+  ylim(44.58, 44.69)
+```
+
+:::
+
+::: {.column width="50%"}
+
+
+```{r}
+#| code-fold: true
+climate_stations_halifax %>%
+  transmute(station_name, lat = round(lat, 2), lon = round(lon, 2),
+            first_date = as.Date(first_date), last_date = as.Date(last_date)) %>%
+  kable("html") %>%
+  kable_styling(font_size = 35)
+```
+
+:::
+:::
+
+
+
+## Packages
+
+```{r}
+as.data.frame(installed.packages()[,c(1,3:4)])
 ```
 
