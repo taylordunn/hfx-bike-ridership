@@ -9,6 +9,7 @@ format:
     df-print: kable
     navigation-mode: vertical
     slide-numbers: true
+    show-slide-number: all
     chalkboard:
       boardmarker-width: 5
 bibliography: references.bib
@@ -77,7 +78,7 @@ set_palette()
 ::: {.column .fragment width="50%"}
 
 
-* Starting in 2020, the city made bike counter data available via their open data platform 
+* A few years ago, the city made bike counter data available via their open data platform 
 
 ![](images/halifax-open-data-bikes.PNG)
 
@@ -1339,7 +1340,7 @@ bike_metrics <- metric_set(rmse, mase)
 ```
 
 
-* Mean absolute squared error[^1]
+* Mean absolute scaled error[^1]
 
 $$
 q_t = \frac{y_t - \hat{y}_t}{\frac{1}{n-1} \sum_{i=2}^n |y_i - y_{i-1} |} = \frac{\text{model error}}{\text{mean naive forecast error}}
@@ -1960,8 +1961,9 @@ p %+% filter(boost_tree_preds,
   geom_vline(xintercept = as.Date("2021-11-23"), lty = 2, size = 1) +
   expand_limits(y = c(0, 200)) +
   theme_td(base_size = 25) +
-  facet_wrap(~ site_name, ncol = 2) +
-  theme(legend.position = "none")
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  theme(legend.position = "none") +
+  add_facet_borders()
 ```
 
 ::: 

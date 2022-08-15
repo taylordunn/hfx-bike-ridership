@@ -427,7 +427,7 @@
 <p><img data-src="images/permanent-zelt.png"></p>
 </div><div class="column fragment" style="width:50%;">
 <ul>
-<li>Starting in 2020, the city made bike counter data available via their open data platform</li>
+<li>A few years ago, the city made bike counter data available via their open data platform</li>
 </ul>
 <p><img data-src="images/halifax-open-data-bikes.PNG"></p>
 </div>
@@ -2401,7 +2401,7 @@ NA
 <section id="metrics" class="slide level2">
 <h2>Metrics</h2>
 <ul>
-<li>Mean absolute squared error<sup>1</sup></li>
+<li>Mean absolute scaled error<sup>1</sup></li>
 </ul>
 <p><span class="math display">\[
 q_t = \frac{y_t - \hat{y}_t}{\frac{1}{n-1} \sum_{i=2}^n |y_i - y_{i-1} |} = \frac{\text{model error}}{\text{mean naive forecast error}}
@@ -3087,7 +3087,7 @@ estimate
 rmse
 </td>
 <td style="text-align:right;">
-42.6400
+42.8100
 </td>
 </tr>
 <tr>
@@ -3095,7 +3095,7 @@ rmse
 mase
 </td>
 <td style="text-align:right;">
-0.7039
+0.7117
 </td>
 </tr>
 </tbody>
@@ -3220,7 +3220,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-89.4
+109.9
 </td>
 </tr>
 <tr>
@@ -3231,7 +3231,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-125.7
+131.4
 </td>
 </tr>
 <tr>
@@ -3242,7 +3242,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-141.8
+134.0
 </td>
 </tr>
 <tr>
@@ -3253,7 +3253,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-268.6
+268.7
 </td>
 </tr>
 <tr>
@@ -3264,7 +3264,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-262.1
+267.2
 </td>
 </tr>
 <tr>
@@ -3275,7 +3275,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-166.4
+161.1
 </td>
 </tr>
 </tbody>
@@ -3341,8 +3341,9 @@ n_bikes
 <span id="cb73-3"><a href="#cb73-3"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">as.Date</span>(<span class="st">"2021-11-23"</span>), <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
 <span id="cb73-4"><a href="#cb73-4"></a>  <span class="fu">expand_limits</span>(<span class="at">y =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">200</span>)) <span class="sc">+</span></span>
 <span id="cb73-5"><a href="#cb73-5"></a>  <span class="fu">theme_td</span>(<span class="at">base_size =</span> <span class="dv">25</span>) <span class="sc">+</span></span>
-<span id="cb73-6"><a href="#cb73-6"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
-<span id="cb73-7"><a href="#cb73-7"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb73-6"><a href="#cb73-6"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb73-7"><a href="#cb73-7"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb73-8"><a href="#cb73-8"></a>  <span class="fu">add_facet_borders</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
@@ -3468,10 +3469,10 @@ Dartmouth Harbourfront Greenway
 30
 </td>
 <td style="text-align:right;">
-116.4
+125.3
 </td>
 <td style="text-align:right;">
-42.4
+50.3
 </td>
 </tr>
 <tr>
@@ -3482,10 +3483,10 @@ Hollis St
 19
 </td>
 <td style="text-align:right;">
-71.6
+75.6
 </td>
 <td style="text-align:right;">
-3.6
+10.2
 </td>
 </tr>
 <tr>
@@ -3496,10 +3497,10 @@ South Park St
 59
 </td>
 <td style="text-align:right;">
-314.9
+307.4
 </td>
 <td style="text-align:right;">
-192.0
+177.8
 </td>
 </tr>
 <tr>
@@ -3510,10 +3511,10 @@ Vernon St
 133
 </td>
 <td style="text-align:right;">
-164.3
+170.1
 </td>
 <td style="text-align:right;">
-85.7
+92.9
 </td>
 </tr>
 <tr>
@@ -3524,10 +3525,10 @@ Windsor St
 26
 </td>
 <td style="text-align:right;">
-84.4
+85.5
 </td>
 <td style="text-align:right;">
-13.6
+16.6
 </td>
 </tr>
 </tbody>
