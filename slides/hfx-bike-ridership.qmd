@@ -9,6 +9,8 @@ format:
     df-print: kable
     navigation-mode: vertical
     slide-numbers: true
+    chalkboard:
+      boardmarker-width: 5
 bibliography: references.bib
 execute: 
   echo: true
