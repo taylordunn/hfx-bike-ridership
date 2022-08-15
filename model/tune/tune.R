@@ -63,7 +63,7 @@ bike_test <- bike_test %>% arrange(count_date, site_name)
 
 bike_resamples <-
   sliding_period(bike_train, index = count_date,
-                 period = "month", lookback = 13, assess_stop = 1)
+                 period = "month", lookback = 12, assess_stop = 2)
 
 # For model versioning, record the splitting and resampling strategy
 splits_resamples <- tibble(
@@ -73,7 +73,7 @@ splits_resamples <- tibble(
   min_date_test = min(bike_test$count_date),
   max_date_test = max(bike_test$count_date),
   prop = 0.7, resamples = "sliding_period",
-  resample_params = "lookback = 13, assess_stop = 1"
+  resample_params = "lookback = 12, assess_stop = 2"
 )
 
 # Features ------------------------------------------------------------------

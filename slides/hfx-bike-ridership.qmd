@@ -7,8 +7,9 @@ format:
     height: 1080
     width: 1920
     df-print: kable
-    # code-fold: true
-    # code-summary: "Code"
+    navigation-mode: vertical
+    slide-numbers: true
+bibliography: references.bib
 execute: 
   echo: true
   eval: true
@@ -21,6 +22,7 @@ execute:
 #renv::use(lockfile = "../renv.lock")
 
 library(tidyverse)
+library(tidymodels)
 library(here)
 library(httr)
 library(lubridate)
@@ -28,6 +30,7 @@ library(knitr)
 library(kableExtra)
 library(ggmap)
 library(glue)
+library(patchwork)
 
 library(dunnr)
 extrafont::loadfonts(device = "win", quiet = TRUE)
@@ -46,13 +49,11 @@ set_palette()
 
 :::
 
-:::{.column width="50%"}
+:::{.column .fragment width="50%"}
 
-* Starting in 2020, the city made bike counter data available via their open data platform 
+* Temporary tube counters
 
 ![](images/pneumatic-tube-counter.png)
-
-![](images/bike-counter.jpg)
 
 
 :::
@@ -67,34 +68,39 @@ set_palette()
 ::: columns
 ::: {.column width="50%"}
 
-![](images/halifax-open-data-logo.PNG){fig-align="center"}
+![](images/permanent-zelt.png)
 
 :::
 
-:::{.column width="50%"}
+::: {.column .fragment width="50%"}
+
+
+* Starting in 2020, the city made bike counter data available via their open data platform 
+
+![](images/halifax-open-data-bikes.PNG)
 
 :::
 :::
 
 ::: {.notes}
-* In 2019, the city of Halifax installed its first bike counter to track cyclists
+* A few years later, they installed permanent bike counters that are actually underground so they can work all year round
 :::
 
 ## Motivation
 
 1. To work with data that was interesting to me
-2. To practice machine learning (and `tidymodels`)
-3. To learn how to deploy a model on Google Cloud
+2. To practice machine learning
+3. To learn how to deploy a data pipeline and model on Google Cloud
 
-
-## Motivation
+## Plan today
 
 1. Getting and exploring the data
 2. Modeling
 3. Deployment
 
+# Getting the bike data
 
-## Getting the data
+## Getting the bike data
 
 ```{r}
 #| eval: false
@@ -110,7 +116,7 @@ resp <- read_rds(here("slides", "data", "resp-bikes.rds"))
 resp
 ```
 
-## Getting the data
+## Getting the bike data
 
 ```{r}
 parsed_content <- content(resp)
@@ -123,7 +129,7 @@ str(parsed_content, max.level = 1)
 parsed_content$features[[1]] %>% str()
 ```
 
-## Getting the data
+## Getting the bike data
 
 ```{r}
 bike_counts <- map_dfr(
@@ -134,7 +140,7 @@ glimpse(bike_counts)
 ```
 
 
-## Getting the data
+## Getting the bike data
 
 * `exceededTransferLimit = TRUE` tells us that 2000 records is the limit of a single API request.
 * How many total records are available?
@@ -155,7 +161,7 @@ n_records <- read_rds(here("slides", "data", "n-records.rds"))
 n_records
 ```
 
-## Getting the data
+## Getting the bike data
 
 * Write a function to get 2000 records at a time and iterate
 
@@ -195,7 +201,9 @@ bike_data <- janitor::clean_names(bike_data)
 glimpse(bike_data)
 ```
 
-## Exploring the data
+# Exploring the bike data
+
+## Exploring the bike data
 
 ```{r}
 #| echo: false
@@ -222,9 +230,8 @@ bike_data %>% count(site_name, channel_name, name = "n_records")
 
 * 5 sites
 * 4 out of 5 have two "channels"
-* South Park St has the most recent
 
-## Exploring the data
+## Exploring the bike data
 
 * Dates?
 
@@ -235,7 +242,7 @@ bike_data %>%
             .groups = "drop")
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * Where exactly are the sites?
 
@@ -263,7 +270,7 @@ halifax_map <- get_googlemap(c(mean_lon, mean_lat),
 halifax_map <- read_rds(here("slides", "data", "halifax-map.rds"))
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * Where exactly are the sites?
 
@@ -282,7 +289,7 @@ ggmap(halifax_map) +
   theme(legend.position = "none")
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * At what frequency are data recorded?
 
@@ -300,7 +307,7 @@ bike_data %>%
   theme(legend.position = "bottom")
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * What time zone is this?
 
@@ -345,7 +352,7 @@ bike_data_tod %>%
 
 :::
 
-## Exploring the data
+## Exploring the bike data
 
 * 4 of the sites have northbound and southbound channels, how do they differ?
 
@@ -378,7 +385,7 @@ p <- d %>%
 p
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * 4 of the sites have northbound and southbound channels, how do they differ?
 
@@ -424,7 +431,7 @@ ggmap(halifax_map) +
 :::
 :::
 
-## Exploring the data
+## Exploring the bike data
 
 * Visualizing the daily totals
 
@@ -460,7 +467,7 @@ p_thick <- bike_data_daily_counts %>%
   dunnr::add_facet_borders()
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * First observation: a series of zeroes
 
@@ -479,7 +486,7 @@ bike_data_daily_counts <- bike_data_daily_counts %>%
   filter(!((site_name == "South Park St") & (count_date < "2019-11-23")))
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * Second observation: a big year-to-year increase on South Park St
 
@@ -508,10 +515,11 @@ p %+%
 
 
 ::: {.notes}
+* Construction started in September, and ended in December
 * Of note: this shows the effect of the pandemic
 :::
 
-## Exploring the data
+## Exploring the bike data
 
 * Third observation: a large spike in February 2022
 
@@ -538,7 +546,7 @@ p_thick %+%
 :::
 
 
-## Exploring the data
+## Exploring the bike data
 
 * Overlay years to see seasonality
 
@@ -562,7 +570,7 @@ bike_data_daily_counts %>%
   scale_color_brewer(palette = "Set1")
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * How about day of week?
 
@@ -580,7 +588,7 @@ bike_data_daily_counts %>%
   dunnr::add_facet_borders()
 ```
 
-## Exploring the data
+## Exploring the bike data
 
 * How about holidays?
 
@@ -622,7 +630,7 @@ head(canada_holiday_dates)
 :::
 
 
-## Exploring the data
+## Exploring the bike data
 
 * Is there a holiday effect?
 
@@ -664,6 +672,86 @@ canada_holiday_dates %>%
 ::: {.notes}
 * Only showing South Park St (3 years of data) and only 3 out of 12 holidays
 :::
+
+## Exploring the bike data
+
+* Investigate the autocorrelation
+
+```{r}
+#| code-fold: true
+bike_lag <- bike_data_daily_counts %>%
+  arrange(site_name, count_date) %>%
+  group_by(site_name) %>%
+  mutate(
+    n_bikes_lag_1 = lag(n_bikes, 1),
+    n_bikes_lag_2 = lag(n_bikes, 2),
+    n_bikes_lag_3 = lag(n_bikes, 3),
+    n_bikes_lag_7 = lag(n_bikes, 7),
+    n_bikes_lag_14 = lag(n_bikes, 14)
+  ) %>%
+  ungroup() %>%
+  select(site_name, count_date, starts_with("n_bikes")) %>%
+  pivot_longer(cols = matches("n_bikes_lag"),
+               names_to = "lag_days", values_to = "n_bikes_lag") %>%
+  filter(!is.na(n_bikes_lag)) %>%
+  mutate(
+    lag_days = str_extract(lag_days, "\\d+") %>% as.integer(),
+    lag_label = if_else(lag_days == 1, paste0(lag_days, " day"),
+                        paste0(lag_days, " days")) %>%
+      fct_reorder(lag_days)
+  ) %>%
+  group_by(site_name, lag_days, lag_label) %>%
+  mutate(corr_coef = cor(n_bikes, n_bikes_lag)) %>%
+  ungroup()
+
+sites_pal <- setNames(td_colors$pastel6, unique(bike_lag$site_name))
+
+p <- bike_lag %>%
+  ggplot(aes(x = n_bikes_lag, y = n_bikes, color = site_name)) +
+  geom_point(alpha = 0.2, size = 3) +
+  geom_label(data = . %>% distinct(lag_label, site_name, corr_coef),
+             aes(label = round(corr_coef, 2), x = 500, y = 200, size = 15)) +
+  geom_abline(slope = 1) +
+  facet_grid(str_trunc(site_name, 20) ~ factor(lag_label)) +
+  scale_color_manual(values = sites_pal) +
+  theme_td(base_size = 20) +
+  theme(legend.position = "none") +
+  dunnr::add_facet_borders()
+```
+
+```{r}
+#| fig-align: center
+#| echo: false
+p %+%
+  filter(bike_lag, lag_days == 1, site_name == "South Park St")
+```
+
+
+## Exploring the bike data
+
+* Investigate the autocorrelation
+
+```{r}
+#| fig-align: center
+#| echo: false
+p %+%
+  filter(bike_lag, site_name == "South Park St")
+```
+
+## Exploring the bike data
+
+* Investigate the autocorrelation
+
+```{r}
+#| fig-align: center
+#| echo: false
+p +
+  facet_grid(str_trunc(site_name, 10, ellipsis = "") ~ factor(lag_label)) +
+  theme(strip.text.y = element_text(size = 8))
+```
+
+
+# Getting the weather data
 
 ## Getting the weather data
 
@@ -856,11 +944,1838 @@ climate_stations_halifax %>%
 :::
 :::
 
+## Getting the weather data
 
-
-## Packages
+* Windsor Park will do
 
 ```{r}
-as.data.frame(installed.packages()[,c(1,3:4)])
+#| code-fold: true
+#| eval: false
+resp <- GET(
+  paste0(base_url,
+         "collections/climate-daily/items?f=json&limit=10000&STATION_NAME=",
+         URLencode("HALIFAX WINDSOR PARK"))
+)
+
+content_parsed <- content(resp, as = "parsed")
+
+weather_data <- map_dfr(
+  content_parsed$features,
+  ~ purrr::discard(.x$properties, is.null) %>% as_tibble()
+) %>%
+  janitor::clean_names() %>%
+  select(-station_name, -climate_identifier, -id, -province_code) %>%
+  mutate(report_date = as.POSIXct(local_date) %>% as.Date()) %>%
+  select(report_date, mean_temperature, total_precipitation, snow_on_ground,
+         speed_max_gust) %>%
+  inner_join(bike_data_daily_counts %>% distinct(count_date),
+             by = c("report_date" = "count_date")) %>%
+  arrange(report_date)
+
+head(weather_data)
 ```
 
+```{r}
+#| echo: false
+resp <- read_rds(here("slides", "data", "resp-windsor.rds"))
+content_parsed <- content(resp, as = "parsed")
+
+weather_data <- map_dfr(
+  content_parsed$features,
+  ~ purrr::discard(.x$properties, is.null) %>% as_tibble()
+) %>%
+  janitor::clean_names() %>%
+  select(-station_name, -climate_identifier, -id, -province_code) %>%
+  mutate(report_date = as.POSIXct(local_date) %>% as.Date()) %>%
+  select(report_date, mean_temperature, total_precipitation, snow_on_ground,
+         speed_max_gust) %>%
+  inner_join(bike_data_daily_counts %>% distinct(count_date),
+             by = c("report_date" = "count_date")) %>%
+  arrange(report_date)
+  
+head(weather_data)
+```
+
+# Exploring the weather data
+
+## Exploring the weather data
+
+* Weather distributions
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 8
+weather_pal <- setNames(td_colors$pastel6[c(1:3, 5)],
+                        c("mean_temperature", "snow_on_ground",
+                          "speed_max_gust", "total_precipitation"))
+weather_data %>%
+  pivot_longer(cols = -report_date) %>%
+  filter(!is.na(value)) %>%
+  ggplot(aes(x = value, fill = name)) +
+  geom_histogram(bins = 20) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  facet_wrap(~ name, nrow = 2, scales = "free") +
+  theme_td(base_size = 30) +
+  theme(legend.position = "none") +
+  dunnr::add_facet_borders() +
+  scale_fill_manual(values = weather_pal)
+```
+
+::: {.notes}
+* `mean_temperature`: Celsius
+    * -10 C = 15 F
+    * 20 C = 70 F
+* `snow_on_ground`: centimeters
+    * 25 cm = 10 inches
+* `speed_max_gust`: km per hour
+    * 30 kmh = 20 mph
+    * 90 kmh = 55 mpg
+* `total_precipitation`: millimeters
+    * 60 mm = 2 inches
+:::
+
+## Exploring the weather data
+
+* Visualize the mean temperature
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 8
+mean_temperature <- mean(weather_data$mean_temperature, na.rm = TRUE)
+
+weather_data %>%
+  mutate(
+    mean_temperature = replace_na(mean_temperature, -20),
+    var = "mean_temperature"
+  ) %>%
+  ggplot(aes(x = report_date, y = mean_temperature)) +
+  geom_line(aes(color = var), data = . %>% filter(mean_temperature > -20),
+            size = 1, show.legend = FALSE) +
+  geom_hline(yintercept = mean_temperature, size = 1, lty = 2) +
+  geom_jitter(aes(color = var), data = . %>% filter(mean_temperature == -20),
+              width = 0, alpha = 0.8, size = 3, show.legend = FALSE) +
+  scale_y_continuous(breaks = c(mean_temperature, -20, -10, 0, 10, 20),
+                     labels = c("mean", "missing", -10, 0, 10, 20)) +
+  scale_color_manual(values = weather_pal) +
+  theme_td(base_size = 30)
+```
+
+::: {.notes}
+* 14 missing days for temperature (out of 873 = 1.6%)
+:::
+
+## Exploring the weather data
+
+* Visualize the total precipitation
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 8
+mean_precip <- mean(weather_data$total_precipitation, na.rm = TRUE)
+
+weather_data %>%
+  mutate(
+    total_precipitation = replace_na(total_precipitation, -10),
+    var = "total_precipitation"
+  ) %>%
+  ggplot(aes(x = report_date, y = total_precipitation)) +
+  geom_point(aes(color = var), data = . %>% filter(total_precipitation > -10),
+             size = 3, show.legend = FALSE) +
+  geom_hline(yintercept = mean_precip, size = 1, lty = 2) +
+  geom_jitter(aes(color = var), data = . %>% filter(total_precipitation == -10),
+              width = 0, alpha = 0.3, size = 3, show.legend = FALSE) +
+  scale_y_continuous(breaks = c(mean_precip, -10, 0, 20, 40, 60),
+                     labels = c("mean", "missing", 0, 20, 40, 60)) +
+  scale_color_manual(values = weather_pal) +
+  theme_td(base_size = 30)
+```
+
+::: {.notes}
+* 395 missing days for temperature (out of 873 = 45%)
+:::
+
+## Exploring the weather data
+
+* Visualize the snowfall
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 8
+mean_snow <- mean(weather_data$snow_on_ground, na.rm = TRUE)
+
+weather_data %>%
+  mutate(
+    snow_on_ground = replace_na(snow_on_ground, -5),
+    var = "snow_on_ground"
+  ) %>%
+  ggplot(aes(x = report_date, y = snow_on_ground)) +
+  geom_point(aes(color = var), data = . %>% filter(snow_on_ground > -5),
+             size = 3, show.legend = FALSE) +
+  geom_hline(yintercept = mean_snow, size = 1, lty = 2) +
+  geom_jitter(aes(color = var), data = . %>% filter(snow_on_ground == -5),
+              width = 0, alpha = 0.3, size = 3, show.legend = FALSE) +
+  scale_y_continuous(breaks = c(mean_snow, -5, 0, 20, 40, 60),
+                     labels = c("mean", "missing", 0, 20, 40, 60)) +
+  scale_color_manual(values = weather_pal) +
+  theme_td(base_size = 30)
+```
+
+::: {.notes}
+* 568 missing days for temperature (out of 873 = 65%)
+:::
+
+## Exploring the weather data
+
+* Visualize the wind speed
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 8
+mean_wind <- mean(weather_data$speed_max_gust, na.rm = TRUE)
+
+weather_data %>%
+  mutate(
+    speed_max_gust = replace_na(speed_max_gust, 20),
+    var = "speed_max_gust"
+  ) %>%
+  ggplot(aes(x = report_date, y = speed_max_gust)) +
+  geom_point(aes(color = var), data = . %>% filter(speed_max_gust > 20),
+             size = 3, show.legend = FALSE) +
+  geom_hline(yintercept = mean_wind, size = 1, lty = 2) +
+  geom_jitter(aes(color = var), data = . %>% filter(speed_max_gust == 20),
+              size = 3, width = 0, alpha = 0.5, show.legend = FALSE) +
+  scale_y_continuous(breaks = c(mean_wind, 20, 30, 50, 70),
+                     labels = c("mean", "missing", 30, 50, 70)) +
+  scale_color_manual(values = weather_pal) +
+  theme_td(base_size = 30)
+```
+
+::: {.notes}
+* 334 missing days for temperature (out of 873 = 4%)
+:::
+
+## Exploring the weather data
+
+* Relationship with daily bike counts
+
+```{r}
+#| echo: false
+bike_ridership <- read_rds(here("slides", "data", "bike-ridership-data.rds")) %>%
+  filter(n_records > 8)
+```
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 8
+bike_ridership %>%
+  pivot_longer(
+    cols = c(mean_temperature, total_precipitation,
+             speed_max_gust, snow_on_ground),
+    names_to = "var", values_to = "val"
+  ) %>%
+  filter(!is.na(val)) %>%
+  ggplot(aes(x = val, y = n_bikes)) +
+  geom_point(aes(color = str_trunc(site_name, 25)), alpha = 0.6, size = 3) +
+  facet_wrap(~ var, nrow = 2, scales = "free_x") +
+  labs(x = NULL, color = NULL) +
+  theme_td(base_size = 30) +
+  dunnr::add_facet_borders() +
+  theme(legend.position = "bottom")
+```
+
+
+# Modeling
+
+## Features
+
+To predict daily count of bicyclists:
+
+* Site: 5 locations around Halifax
+* Lagged counts: counts from 14 days ago
+
+. . .
+
+* Time variables
+    * day of the week: Monday, Tuesday, ...
+    * day of the year: 1-365
+    * year: 2020-2022
+    * holidays: New Years, Canada Day, etc.
+
+. . .
+
+* Weather variables
+    * mean temperature: rolling window imputation
+    * total precipitation: imputed with 0
+    * total snowfall: imputed with 0
+    * maximum wind speed: imputed with mean
+    
+```{r}
+#| echo: false
+gam_temp <- read_rds(here("slides", "data", "gam-temp.rds"))
+
+bike_ridership <- bike_ridership %>%
+  group_by(site_name) %>%
+  mutate(n_bikes_lag_14 = lag(n_bikes, 14)) %>%
+  ungroup() %>%
+  filter(!is.na(n_bikes_lag_14)) %>%
+  mutate(
+    count_day = as.numeric(count_date - min(count_date)),
+    count_yday = lubridate::yday(count_date),
+  ) %>%
+  bind_cols(pred = predict(gam_temp, newdata = .)) %>%
+  mutate(
+    mean_temperature = ifelse(is.na(mean_temperature), pred,
+                              mean_temperature)
+  ) %>%
+  select(-count_day, -count_yday, -pred)
+```
+
+## Train/test split
+
+* 70/30 split
+
+```{r}
+#| echo: false
+bike_ridership <- bike_ridership %>% arrange(count_date, site_name)
+```
+
+```{r}
+bike_split <- initial_time_split(bike_ridership, prop = 0.7)
+
+bike_train <- training(bike_split)
+bike_test <- testing(bike_split)
+```
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 7
+
+bind_rows(
+  train = bike_train, test = bike_test, .id = "data_set"
+) %>%
+  group_by(data_set, site_name) %>%
+  summarise(
+    min_date = min(count_date), max_date = max(count_date),
+    n_days = n(), midpoint_date = min_date + n_days / 2,
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(y = fct_reorder(site_name, min_date), color = data_set)) +
+  geom_linerange(aes(xmin = min_date, xmax = max_date), size = 1,
+                 position = position_dodge(0.2)) +
+  geom_point(aes(x = min_date), position = position_dodge(0.2), size = 4) +
+  geom_point(aes(x = max_date), position = position_dodge(0.2), size = 4) +
+  geom_text(aes(label = n_days, x = midpoint_date), vjust = -0.5, size = 11,
+            position = position_dodge(0.2), show.legend = FALSE) +
+  labs(x = "date range", y = NULL, color = NULL) +
+  theme_td(base_size = 30)
+```
+
+
+::: {.notes}
+* Train: Dec 2019 to Nov 2021, ~2 years
+* Test: Nov 2021 to April 2022, ~6 months
+:::
+
+## Resampling strategy
+
+* Train on 12 months, predict on 2 months
+
+```{r}
+bike_resamples <-
+  sliding_period(bike_train, index = count_date,
+                 period = "month", lookback = 12, assess_stop = 2)
+```
+
+. . .
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 20
+#| fig-height: 7
+
+bind_rows(
+  analysis_set = map_dfr(bike_resamples$splits, analysis, .id = "i"),
+  assessment_set = map_dfr(bike_resamples$splits, assessment, .id = "i"),
+  .id = "data_set"
+) %>%
+  mutate(i = as.integer(i)) %>%
+  group_by(i, data_set) %>%
+  summarise(
+    min_date = min(count_date), max_date = max(count_date),
+    n_days = n(), midpoint_date = min_date + n_days / 2,
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(y = factor(i), color = data_set)) +
+  geom_linerange(aes(xmin = min_date, xmax = max_date), size = 1,
+                 position = position_dodge(0.3)) +
+  geom_point(aes(x = min_date), position = position_dodge(0.3), size = 4) +
+  geom_point(aes(x = max_date), position = position_dodge(0.3), size = 4) +
+  labs(x = "date range", y = NULL, color = NULL) +
+  theme_td(base_size = 30)
+```
+
+## Metrics
+
+```{r}
+#| include: false
+bike_metrics <- metric_set(rmse, mase)
+```
+
+
+* Mean absolute squared error[^1]
+
+$$
+q_t = \frac{y_t - \hat{y}_t}{\frac{1}{n-1} \sum_{i=2}^n |y_i - y_{i-1} |} = \frac{\text{model error}}{\text{mean naive forecast error}}
+$$
+
+$$
+\text{MASE} = \text{mean}(|q_t|)
+$$
+
+* Root mean square error
+
+[^1]: Hyndman, RJ, & Koehler, AB. (2006). Another look at measures of forecast accuracy. International journal of forecasting, 22(4), 679-688.
+
+## Linear models
+
+```{r}
+#| code-fold: true
+#| eval: false
+lm_spec <- linear_reg(engine = "lm")
+library(poissonreg) # This wrapper package is required to use `poisson_reg()`
+poisson_spec <- poisson_reg(engine = "glm")
+
+glm_recipe <-
+  recipe(n_bikes ~ count_date + site_name + n_bikes_lag_14,
+         data = bike_train) %>%
+  add_role(count_date, new_role = "date_variable") %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors())
+
+glm_recipe_date <-
+  recipe(n_bikes ~ count_date + site_name + n_bikes_lag_14,
+         data = bike_train) %>%
+  add_role(count_date, new_role = "date_variable") %>%
+  step_date(count_date, features = c("dow", "doy", "year"),
+            label = TRUE, ordinal = FALSE) %>%
+  step_ns(count_date_doy, deg_free = tune()) %>%
+  step_holiday(count_date, holidays = canada_holidays) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors())
+
+
+
+glm_recipe_weather <-
+  recipe(n_bikes ~ count_date + site_name + n_bikes_lag_14 + mean_temperature +
+           total_precipitation + speed_max_gust + snow_on_ground,
+         data = bike_train) %>%
+  add_role(count_date, new_role = "date_variable") %>%
+  step_impute_mean(speed_max_gust) %>%
+  # Impute these missing values with zero
+  step_mutate_at(c(total_precipitation, snow_on_ground),
+                 fn = ~ replace_na(., 0)) %>%
+  step_impute_roll(mean_temperature, statistic = mean, window = 31) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors())
+
+glm_recipe_date_weather <-
+  recipe(n_bikes ~ count_date + site_name + n_bikes_lag_14 + mean_temperature +
+           total_precipitation + speed_max_gust + snow_on_ground,
+         data = bike_train) %>%
+  add_role(count_date, new_role = "date_variable") %>%
+  step_date(count_date, features = c("dow", "doy", "year"),
+            label = TRUE, ordinal = FALSE) %>%
+  step_ns(count_date_doy, deg_free = tune()) %>%
+  step_holiday(count_date, holidays = canada_holidays) %>%
+  step_impute_mean(speed_max_gust) %>%
+  step_mutate_at(c(total_precipitation, snow_on_ground),
+                 fn = ~ replace_na(., 0)) %>%
+  step_impute_roll(mean_temperature, statistic = mean, window = 31) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors())
+```
+
+::: {.incremental}
+
+* Two models: linear regression and Poisson regression
+* Three sets of features:
+    * Base variables: site and lagged counts
+    * Base + date variables
+        * Day of year variable represented with natural cubic splines, with 4-7 deg freedom
+    * Base + weather variables
+    * Base + date + weather 
+    
+:::
+    
+. . .
+    
+```{r}
+#| eval: false
+glm_wf_set <- workflow_set(
+  preproc = list(base = glm_recipe,
+                 date = glm_recipe_date,
+                 weather = glm_recipe_weather,
+                 date_weather = glm_recipe_date_weather),
+  models = list(linear_reg = lm_spec, poisson_reg = poisson_spec),
+  cross = TRUE
+)
+```
+
+* In total = 20 model configurations
+
+## Linear models
+
+* Model evaluation
+
+```{r}
+#| echo: false
+plot_wf_set_metrics <- function(wf_set_res, rank_metric = "mase") {
+  rank_results(wf_set_res, rank_metric = rank_metric) %>%
+    filter(.metric %in% c("mase", "rmse")) %>%
+    mutate(preproc = str_remove(wflow_id, paste0("_", model))) %>%
+    ggplot(aes(x = rank, y = mean, color = model, shape = preproc)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin = mean - std_err, ymax = mean + std_err),
+                  width = 0.3) +
+    facet_wrap(~ .metric, nrow = 2, scales = "free_y") +
+    theme_td(base_size = 30)
+}
+```
+
+```{r}
+#| code-fold: true
+#| eval: false
+glm_wf_set_res <- workflow_map(
+  glm_wf_set,
+  "tune_grid",
+  grid = grid_regular(deg_free(range = c(4, 7)), levels = 4),
+  resamples = bike_resamples, metrics = bike_metrics
+)
+
+plot_wf_set_metrics(glm_wf_set_res)
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-width: 15
+#| fig-height: 8
+glm_wf_set_res <- read_rds(here("slides", "data", "glm-wf-set-res.rds"))
+plot_wf_set_metrics(glm_wf_set_res)
+```
+
+## Linear models
+
+* Best linear model: Poisson regression with all features
+
+. . .
+
+* Best spline degree?
+
+```{r}
+#| layout-ncol: 2
+#| code-fold: true
+#| fig-height: 7
+#| fig-width: 9
+
+res <- extract_workflow_set_result(glm_wf_set_res,
+                                   id = "date_weather_poisson_reg") %>%
+  collect_metrics() %>%
+  filter(.metric %in% c("mase", "rmse"))
+
+res %>%
+  transmute(deg_free, .metric,
+            mean_se = paste0(round(mean, 2), " (", round(std_err, 2), ")")) %>%
+  pivot_wider(names_from = .metric, values_from = mean_se)
+res %>%
+  ggplot(aes(x = deg_free, y = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = mean - std_err, ymax = mean + std_err),
+                width = 0.3) +
+  facet_wrap(~ .metric, nrow = 2, scales = "free_y") +
+  theme_td(base_size = 20)
+```
+
+```{r}
+#| eval: false
+#| include: false
+glm_poisson_workflow <- finalize_workflow(
+  extract_workflow(glm_wf_set_res, "date_weather_poisson_reg"),
+  extract_workflow_set_result(glm_wf_set_res, "date_weather_poisson_reg") %>%
+    select_best(metric = "mase")
+)
+# Returning an erorr for some reason
+glm_poisson_fit <- fit(glm_poisson_workflow, bike_train)
+```
+
+```{r}
+#| include: false
+glm_poisson_fit <- read_rds(here("slides", "data", "glm-poisson-fit.rds"))
+
+augment(glm_poisson_fit, new_data = bike_train) %>%
+  filter(count_date >= "2020-01-01", count_date <= "2020-12-31",
+         site_name == "South Park St", !is.na(.pred)) %>%
+  ggplot(aes(x = count_date)) +
+  geom_line(aes(y = n_bikes, color = site_name)) +
+  geom_line(aes(y = .pred)) +
+  scale_color_manual(values = sites_pal) +
+  theme(legend.position = "none")
+```
+
+## Linear models
+
+* Interpretation
+
+::: {.columns}
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+poisson_coefs <- tidy(glm_poisson_fit) %>%
+  arrange(desc(abs(statistic))) %>%
+  mutate(estimate = signif(estimate, 3), std.error = signif(estimate, 2),
+         statistic = round(statistic, 1), p.value = scales::pvalue(p.value))
+poisson_coefs %>%
+  filter(str_detect(term, "temperature|precip|max_gust|snow"))
+```
+
+
+. . .
+
+$$
+\begin{align}
+\log{n}_{\text{bikes}} &= \beta_0 + \beta_1 x_1 + \dots + \beta_p x_p \\
+n_{\text{bikes}} &= \text{exp}(\beta_0 + \beta_1 x_1 + \dots + \beta_p x_p) \\
+&= \text{exp}(\beta_0) \text{exp}(\beta_1 x_1) \dots \text{exp}(\beta_p x_p) \\
+\end{align}
+$$
+
+:::
+
+::: {.column .fragment width="50%"}
+
+```{r}
+#| include: false
+weather_example <- poisson_coefs %>%
+  filter(str_detect(term, "temperature|precip|max_gust|snow")) %>%
+  mutate(x = c(5, 10, 10, 5),
+         perc_change = scales::percent(exp(x * estimate), accuracy = 1)) %>%
+  pull(perc_change, name = term)
+```
+
+* For every 5°C increase in daily average temperature, the expected number of bikes increases by `r weather_example["mean_temperature"]`.
+* For every 10mm increase in rain, the expected number of bikes decreases by `r weather_example["total_precipitation"]`.
+* For every 10km/h increase in maximum wind speed, the expected number of bikes decreases by `r weather_example["speed_max_gust"]`.
+* For every 5cm of snow, the expected number of bikes decreases by `r weather_example["snow_on_ground"]`.
+
+:::
+:::
+
+## Tree-based methods
+
+* Decision tree, random forest, boosted trees
+* 10 candidate models each, with different hyperparameters
+
+```{r}
+#| code-fold: true
+#| eval: false
+trees_recipe <-
+  recipe(n_bikes ~ count_date + site_name + n_bikes_lag_14 + mean_temperature +
+           total_precipitation + speed_max_gust + snow_on_ground,
+         data = bike_train) %>%
+  update_role(count_date, new_role = "date_variable") %>%
+  step_date(count_date, features = c("dow", "doy", "year"),
+            label = TRUE, ordinal = FALSE) %>%
+  step_holiday(count_date, holidays = canada_holidays) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_impute_mean(speed_max_gust) %>%
+  step_mutate_at(c(total_precipitation, snow_on_ground),
+                 fn = ~ replace_na(., 0)) %>%
+  step_impute_roll(mean_temperature, statistic = mean, window = 31) %>%
+  step_zv(all_predictors())
+
+# XGBoost requires dummy variables
+trees_recipe_dummy <- trees_recipe %>%
+  step_dummy(all_nominal_predictors())
+
+decision_spec <-
+  decision_tree(cost_complexity = tune(), tree_depth = tune(),
+                min_n = tune()) %>%
+  set_engine("rpart") %>%
+  set_mode("regression")
+
+rf_spec <- rand_forest(mtry = tune(), min_n = tune(), trees = 1000) %>%
+  # Setting the `importance` parameter now lets me use `vip` later
+  set_engine("ranger", importance = "permutation") %>%
+  set_mode("regression")
+
+xgb_spec <- boost_tree(
+  mtry = tune(), trees = tune(), min_n = tune(),
+  tree_depth = tune(), learn_rate = tune()
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+trees_wf_set <- workflow_set(
+  preproc = list(trees_recipe = trees_recipe,
+                 trees_recipe = trees_recipe,
+                 trees_recipe_dummy = trees_recipe_dummy),
+  models = list(rf = rf_spec, decision = decision_spec, xgb = xgb_spec),
+  cross = FALSE
+)
+
+trees_wf_set_res <- workflow_map(
+  trees_wf_set,
+  "tune_grid",
+  grid = 10, resamples = bike_resamples, metrics = bike_metrics,
+)
+```
+
+```{r}
+#| echo: false
+trees_wf_set_res <- read_rds(here("slides", "data", "trees-wf-set-res.rds"))
+```
+
+
+::: {.notes}
+* Decision tree:
+    * tree depth: how deep the tree can be, i.e. many splits a tree can make before coming to a decision [1, 15]
+    * cost-complexity: prunes the tree to control complexity, using a penalty term that penalizes trees with a large number of terminal nodes [-10, 1]
+    * `min_n` minimal node size: minimum number of data points in a node that is required before it can be split further [2, 40]
+* Random forest: combines the output of many decision trees from bootstrapped training samples, but each split in the tree only uses a random subset of predictors
+    * `mtry`: number of randomly sampled predictors [1, p]
+    * `trees`: the number of trees to ensemble
+* XGBoost: an implementation of gradient boosted decision trees
+    * boosting: involves growing decision trees sequentially, where each tree is fit to the residuals from the previous tree
+    * gradient boosting: an extension of boosting where the process of additively generating weak models is done using a gradient descent algorithm
+    * XGBoost is a particular implementation that is faster and more efficient thanks to some regularization and parallelization
+:::
+
+## Tree-based methods
+
+* Model evaluation
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 15
+#| fig-height: 8
+plot_wf_set_metrics <- function(wf_set_res, rank_metric = "mase") {
+  rank_results(wf_set_res, rank_metric = rank_metric) %>%
+    filter(.metric %in% c("mase", "rmse")) %>%
+    ggplot(aes(x = rank, y = mean, color = model)) +
+    geom_point(size = 4) +
+    geom_errorbar(aes(ymin = mean - std_err, ymax = mean + std_err),
+                  width = 0.3) +
+    facet_wrap(~ .metric, nrow = 2, scales = "free_y") +
+    theme_td(base_size = 30)
+}
+plot_wf_set_metrics(trees_wf_set_res)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+decision_workflow <- finalize_workflow(
+  extract_workflow(trees_wf_set_res, "trees_recipe_decision"),
+  extract_workflow_set_result(trees_wf_set_res, "trees_recipe_decision") %>%
+    select_best(metric = "mase")
+)
+rf_workflow <- finalize_workflow(
+  extract_workflow(trees_wf_set_res, "trees_recipe_rf"),
+  extract_workflow_set_result(trees_wf_set_res, "trees_recipe_rf") %>%
+    select_best(metric = "mase")
+)
+xgb_workflow <- finalize_workflow(
+  extract_workflow(trees_wf_set_res, "trees_recipe_dummy_xgb"),
+  extract_workflow_set_result(trees_wf_set_res, "trees_recipe_dummy_xgb") %>%
+    select_best(metric = "mase")
+)
+
+decision_fit <- decision_workflow %>% fit(bike_train)
+rf_fit <- rf_workflow %>% fit(bike_train)
+xgb_fit <- xgb_workflow %>% fit(bike_train)
+```
+
+```{r}
+#| echo: false
+decision_fit <- read_rds(here("slides", "data", "decision-fit.rds"))
+rf_fit <- read_rds(here("slides", "data", "rf-fit.rds"))
+xgb_fit <- read_rds(here("slides", "data", "xgb-fit.rds"))
+```
+
+## Tree-based methods
+
+* Interpret the models with variable importance
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 15
+#| fig-height: 8
+library(vip)
+
+p1 <- extract_fit_engine(decision_fit) %>%
+  vi(scale = TRUE) %>%
+  vip(num_features = 5)  +
+  scale_y_continuous(NULL, expand = c(0, 0)) +
+  labs(subtitle = "Decision tree") +
+  theme_td(base_size = 25)
+p2 <- extract_fit_engine(rf_fit) %>%
+  vi(scale = TRUE) %>%
+  vip(num_features = 5)  +
+  scale_y_continuous(NULL, expand = c(0, 0)) +
+  labs(subtitle = "Random forest") +
+  theme_td(base_size = 25)
+p3 <- extract_fit_engine(xgb_fit) %>%
+  vi(scale = TRUE) %>%
+  vip(num_features = 5)  +
+  scale_y_continuous(NULL, expand = c(0, 0)) +
+  labs(subtitle = "Boosted tree") +
+  theme_td(base_size = 25)
+
+p1 + p2 + p3 +
+  plot_layout(ncol = 1)
+```
+
+## Model choice
+
+```{r}
+#| echo: false
+xgb_tune <- read_rds(here("slides", "data", "xgb-tune.rds"))
+xgb_fit_2 <- read_rds(here("slides", "data", "xgb-fit-2.rds"))
+boost_best <- xgb_tune %>%
+  collect_metrics() %>%
+  mutate(best_mase = min(mean[.metric == "mase"])) %>%
+  group_by(.config) %>%
+  filter(mean[.metric == "mase"] == best_mase) %>%
+  ungroup()
+```
+
+::: columns
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+bind_rows(
+  rank_results(glm_wf_set_res, rank_metric = "mase",
+                     select_best = TRUE) %>%
+    # Only include the full pre-processing recipe
+    filter(str_detect(wflow_id, "date_weather")),
+  rank_results(trees_wf_set_res, rank_metric = "mase", select_best = TRUE),
+  boost_best %>% mutate(model = "boost_tree_2")
+) %>%
+  filter(.metric %in% c("mase", "rmse")) %>%
+  group_by(model) %>%
+  mutate(mase_temp = mean[.metric == "mase"]) %>%
+  ungroup() %>%
+  transmute(mase_temp, model, .metric,
+            mean_se = paste0(signif(mean, 4), " (",
+                             signif(std_err, 3), ")")) %>%
+  pivot_wider(names_from = .metric, values_from = mean_se) %>%
+  arrange(mase_temp) %>%
+  select(model, MASE = mase, RMSE = rmse)
+```
+
+* The boosted tree model (barely) wins by MASE
+
+:::
+
+::: {.column width="50%"}
+
+* Fit and evaluate on the test set:
+
+```{r}
+#| echo: false
+xgb_spec <- boost_tree(
+  mtry = tune(), trees = tune(), min_n = tune(),
+  tree_depth = tune(), learn_rate = tune()
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+trees_recipe <-
+  recipe(n_bikes ~ count_date + site_name + n_bikes_lag_14 + mean_temperature +
+           total_precipitation + speed_max_gust + snow_on_ground,
+         data = bike_train) %>%
+  update_role(count_date, new_role = "date_variable") %>%
+  step_date(count_date, features = c("dow", "doy", "year"),
+            label = TRUE, ordinal = FALSE) %>%
+  step_holiday(count_date, holidays = canada_holidays) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_impute_mean(speed_max_gust) %>%
+  step_mutate_at(c(total_precipitation, snow_on_ground),
+                 fn = ~ replace_na(., 0)) %>%
+  step_zv(all_predictors())
+
+# XGBoost requires dummy variables
+trees_recipe_dummy <- trees_recipe %>%
+  step_dummy(all_nominal_predictors())
+
+xgb_workflow_2 <- workflow() %>%
+  add_recipe(trees_recipe_dummy) %>%
+  add_model(xgb_spec)
+boost_tree_workflow <- finalize_workflow(
+  xgb_workflow_2, select_best(xgb_tune, metric = "mase")
+)
+```
+
+
+```{r}
+#| code-fold: true
+boost_tree_final_fit <- last_fit(
+  boost_tree_workflow, split = bike_split, metrics = bike_metrics
+)
+collect_metrics(boost_tree_final_fit) %>%
+  transmute(metric = .metric, estimate = signif(.estimate, 4))
+```
+
+:::
+:::
+
+## Exploring the predictions
+
+* Actual vs predicted bikes for training and testing sets
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+boost_tree_preds <- bind_rows(
+  train = augment(extract_workflow(boost_tree_final_fit), bike_train),
+  test = augment(extract_workflow(boost_tree_final_fit), bike_test),
+  .id = "data_set"
+) %>%
+  mutate(data_set = fct_inorder(data_set), .pred = if_else(.pred < 0, 0, .pred))
+
+boost_tree_preds %>%
+  ggplot(aes(x = n_bikes, y = .pred)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(slope = 1, size = 1, color = td_colors$nice$emerald) +
+  facet_wrap(~ data_set) +
+  add_facet_borders()
+```
+
+## Exploring the predictions
+
+* Visualize predictions over time
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+p <- boost_tree_preds %>%
+  ggplot(aes(x = count_date)) +
+  geom_line(aes(y = n_bikes, color = site_name), size = 1) +
+  geom_line(aes(y = .pred), color = "black") +
+  geom_vline(xintercept = min(bike_test$count_date), lty = 2) +
+  facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
+  theme(legend.position = "none") +
+  scale_y_continuous(breaks = seq(0, 600, 200)) +
+  scale_color_manual(values = sites_pal) +
+  expand_limits(y = 200) +
+  dunnr::add_facet_borders()
+p
+```
+
+## Exploring the predictions
+
+* Visualize predictions over time *zoomed in*
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+p + coord_cartesian(xlim = as.Date(c("2021-07-01", "2022-05-01")))
+```
+
+## Exploring the predictions
+
+* Zeros on Vernon St?
+
+```{r}
+#| layout-ncol: 2
+#| code-fold: true
+#| fig-align: center
+p %+% filter(boost_tree_preds, site_name == "Vernon St",
+             count_date > "2021-11-01", count_date < "2021-12-01") +
+  theme_td(base_size = 25) +
+  theme(legend.position = "none")
+
+boost_tree_preds %>%
+  filter(site_name == "Vernon St", n_bikes == 0) %>%
+  transmute(count_date, n_bikes, .pred = round(.pred, 1))
+```
+
+## Exploring the predictions
+
+* Home for Christmas?
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+p %+% filter(boost_tree_preds,
+             site_name %in% c("South Park St", "Vernon St"),
+             count_date > "2021-12-01", count_date < "2022-01-10") +
+  expand_limits(y = c(0, 250)) +
+  theme_td(base_size = 25) +
+  theme(legend.position = "none")
+```
+
+::: {.notes}
+* Looked at 2020 numbers in the Christmas period, not nearly as bad -- COVID?
+:::
+
+## Exploring the predictions
+
+* A period of poor predictions?
+
+::: {.columns}
+::: {.column width="50%"}
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-height: 8
+p %+% filter(boost_tree_preds,
+             count_date > "2021-11-20", count_date < "2021-11-26") +
+  geom_vline(xintercept = as.Date("2021-11-23"), lty = 2, size = 1) +
+  expand_limits(y = c(0, 200)) +
+  theme_td(base_size = 25) +
+  facet_wrap(~ site_name, ncol = 2) +
+  theme(legend.position = "none")
+```
+
+::: 
+::: {.column .fragment width="50%"}
+
+```{r}
+#| code-fold: true
+boost_tree_preds %>%
+  filter(count_date >= "2021-11-22", count_date <= "2021-11-23") %>%
+  distinct(count_date, mean_temperature, total_precipitation, speed_max_gust)
+```
+
+:::
+:::
+
+
+## Exploring the predictions
+
+![](images/weather-article.PNG)
+
+. . .
+
+* A weak point of my modeling: missing data imputation
+
+```{r}
+#| code-fold: true
+augment(
+  extract_workflow(boost_tree_final_fit),
+  boost_tree_preds %>%
+    filter(count_date == "2021-11-23") %>%
+    rename(.pred_old = .pred) %>%
+    mutate(total_precipitation = 15)
+) %>%
+  transmute(site_name, n_bikes,
+            .pred_old = round(.pred_old, 1),
+            .pred_new = round(.pred, 1))
+```
+
+# Model deployment
+
+## Model deployment
+
+::: {.notes}
+* Docker is a software for generating virtual systems or containers that can run code on servers like Google Cloud or AWS
+* They're great for reproduciblity, because they define every little detail including the operating system, of the container
+* The dockerfile, which I'm showing here, has the instructions for constructing the Docker image or machine
+* rocker/tidyverse is the base image
+    * doing a lot of heavy lifting
+    * Ubuntu, installs system libraries, installs R, installs a bunch of packages 
+:::
+
+::: {.incremental}
+
+* Putting the boosted tree model into "production" on Google Cloud Platform (GCP)
+* ETL pipeline with BigQuery and Cloud Scheduler
+* automatic model training with Cloud Run and Pub/Sub
+* serving predictions with a REST API
+* prediction visualization with a Shiny dashboard
+
+:::
+
+## ETL pipeline
+
+* A Dockerfile to "containerize" the code
+
+```{dockerfile}
+FROM rocker/tidyverse:latest
+
+RUN R -e "install.packages(c('bigrquery', 'httr'), repos = 'http://cran.us.r-project.org')"
+
+ADD oauth-client.json /home/rstudio
+ADD etl/etl.R /home/rstudio
+
+CMD Rscript /home/rstudio/etl.R
+```
+
+. . .
+
+* A script to *extract*, *transform* and *load*
+
+```{r}
+#| eval: false
+library(bigrquery)
+library(tidyverse)
+library(httr)
+library(jsonlite)
+
+# Get bike counter data ---------------------------------------------------
+
+hfx_bike_url <- "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Bicycle_Counts/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=json"
+
+get_bike_counts <- function(offset) {
+  # Need to prevent scientific notation, e.g. "1e+05" instead of "100000"
+  offset <- format(offset, scientific = FALSE)
+
+  content_parsed <- GET(paste0(hfx_bike_url, "&resultOffset=", offset)) %>%
+    content(as = "parsed")
+
+  map_dfr(
+    content_parsed$features,
+    ~ as_tibble(.x$attributes)
+  )
+}
+
+n_records <- GET(paste0(hfx_bike_url, "&returnCountOnly=true")) %>%
+  content(as = "text") %>%
+  fromJSON() %>%
+  as.numeric()
+
+message("Number of bike counter records to collect: ", n_records)
+message("Downloading bike counter data")
+bike_counts <- map_dfr(
+  seq(0, ceiling(n_records / 2000)),
+  ~ get_bike_counts(offset = .x * 2000)
+)
+
+bike_counts_daily <- bike_counts %>%
+  # Timestamps are in Unix time (milliseconds since Jan 1, 1970)
+  mutate(count_datetime = as.POSIXct(COUNT_DATETIME / 1000,
+                                     tz = "UTC", origin = "1970-01-01")) %>%
+  group_by(site_name = SITE_NAME, count_date = as.Date(count_datetime)) %>%
+  summarise(n_records = n(), n_bikes = sum(COUNTER_VALUE),
+            .groups = "drop") %>%
+  filter(
+    # Only keep days with a full day of records (24 on Hollis St, 48 others)
+    ifelse(site_name == "Hollis St", n_records == 24, n_records == 48)
+  ) %>%
+  arrange(site_name, count_date) %>%
+  group_by(site_name) %>%
+  mutate(n_bikes_lag_14 = lag(n_bikes, 14)) %>%
+  ungroup() %>%
+  arrange(count_date, site_name)
+
+message("Max bike counter date: ", max(bike_counts_daily$count_date))
+
+# Get weather data --------------------------------------------------------
+
+weather_base_url <-
+  "https://api.weather.gc.ca/collections/climate-daily/items?f=json&lang=en-CA"
+get_daily_climate_report_year <- function(
+  station_name, local_year, limit = 10000
+) {
+  weather_query <- paste(
+    c(weather_base_url,
+      paste0("limit=", limit),
+      paste0("STATION_NAME=", URLencode(station_name)),
+      paste0("LOCAL_YEAR=", local_year)),
+    collapse = "&"
+  )
+  content_parsed <- GET(weather_query) %>% content(as = "parsed")
+
+  map_dfr(
+    content_parsed$features,
+    ~ discard(.x$properties, is.null) %>% as_tibble()
+  )
+}
+
+bike_count_years <- unique(format(bike_counts_daily$count_date, "%Y"))
+
+message("Downloading weather data")
+climate_report_windsor <-
+  map2_dfr(
+    "HALIFAX WINDSOR PARK", bike_count_years,
+    get_daily_climate_report_year
+  )
+# Especially in 2022, the Windsor St climate station is missing lots of data.
+#  To supplement it, a more reliable station is the airport.
+#  It is ~30 minutes outside the city, so the weather isn't exactly the same
+#  but should give reasonable imputation of missing values
+climate_report_airport <-
+  map2_dfr(
+    "HALIFAX STANFIELD INT'L A", bike_count_years,
+    get_daily_climate_report_year
+  ) %>%
+  # The airport has a few different identifiers, this one seems to have the
+  #  most non-missing data
+  filter(CLIMATE_IDENTIFIER == "8202251")
+
+climate_report_daily <- climate_report_windsor %>%
+  transmute(
+    report_date = as.POSIXct(LOCAL_DATE) %>% as.Date(),
+    mean_temperature = MEAN_TEMPERATURE,
+    total_precipitation = TOTAL_PRECIPITATION,
+    snow_on_ground = SNOW_ON_GROUND,
+    speed_max_gust = SPEED_MAX_GUST
+  ) %>%
+  full_join(
+    climate_report_airport %>%
+      transmute(
+        report_date = as.POSIXct(LOCAL_DATE) %>% as.Date(),
+        mean_temperature_airport = MEAN_TEMPERATURE,
+        total_precipitation_airport = TOTAL_PRECIPITATION,
+        snow_on_ground_airport = SNOW_ON_GROUND,
+        speed_max_gust_airport = SPEED_MAX_GUST,
+      ),
+    by = "report_date"
+  ) %>%
+  arrange(report_date)
+
+message("Max weather date: ", max(climate_report_daily$report_date))
+
+# Upload data -------------------------------------------------------------
+
+# Authorize to view and manage BigQuery projects
+bq_auth("/home/rstudio/oauth-client.json",
+        email = "hfx-bike-ridership@hfx-bike-ridership.iam.gserviceaccount.com")
+
+# Define the project, dataset and a new table for this project
+project <- "hfx-bike-ridership"
+
+daily_counts_table <- bq_table(project, "bike_counts", "daily_counts")
+weather_table <- bq_table(project, "weather", "daily_report")
+
+bq_table_upload(daily_counts_table,
+                value = bike_counts_daily,
+                fields = bike_counts_daily,
+                # If table doesn't exist, create it
+                create_disposition = "CREATE_IF_NEEDED",
+                # If table exists, overwrite it
+                write_disposition = "WRITE_TRUNCATE")
+
+bq_table_upload(weather_table,
+                value = climate_report_daily,
+                fields = climate_report_daily,
+                create_disposition = "CREATE_IF_NEEDED",
+                write_disposition = "WRITE_TRUNCATE")
+
+message("Finished ETL pipeline")
+```
+
+
+## ETL pipeline
+
+![](images/etl-3.PNG){width=150%}
+
+. . .
+
+::: columns
+::: {.column width="50%"}
+
+![](images/etl-1.PNG){width=120%}
+
+:::
+::: {.column .fragment width="50%"}
+
+![](images/etl-2.PNG){width=150%}
+
+:::
+:::
+
+## Model training
+
+* At the bottom of the `etl.R` script:
+
+```{r}
+#| eval: false
+message("Finished ETL pipeline")
+```
+
+. . .
+
+::: columns
+::: {.column width="50%"}
+
+* A "sink" to look for the message in Cloud logs
+
+![](images/pub-sub.PNG){width=150%}
+
+:::
+::: {.column .fragment width="50%"}
+
+* A script to fit and save the new model
+
+```{r}
+#| eval: false
+library(dplyr)
+library(readr)
+library(tidymodels)
+library(bigrquery)
+library(googleCloudStorageR)
+library(googleCloudRunner)
+library(plumber)
+source("preprocess.R")
+
+bq_auth(path = "oauth-client.json")
+gcs_auth("oauth-client.json")
+gcs_upload_set_limit(20000000L) # 20 Mb
+
+# This function will retrieve the latest data from BigQuery, the trained
+#  model from GCS, and fit a boosted tree model, which is saved to GCS
+pub <- function(message) {
+  # Define the project, dataset and a new table for this project
+  project <- "hfx-bike-ridership"
+
+  daily_counts_table <- bq_table(project, "bike_counts", "daily_counts")
+  bike_data <- bq_table_download(daily_counts_table)
+  bike_data_updated <- bq_table_meta(daily_counts_table)$lastModifiedTime %>%
+    as.numeric() %>%
+    {as.POSIXct(. / 1000, origin = "1970-01-01")}
+
+
+  weather_table <- bq_table(project, "weather", "daily_report")
+  weather_data <- bq_table_download(weather_table)
+  weather_data_updated <- bq_table_meta(weather_table)$lastModifiedTime %>%
+    as.numeric() %>%
+    {as.POSIXct(. / 1000, origin = "1970-01-01")}
+
+  bike_data <- preprocess(bike_data, weather_data)
+  tree_tuned <- gcs_get_object("tune/tree-model-tuned.rds",
+                              bucket = "hfx-bike-ridership-model",
+                              parseFunction = gcs_parse_rds)
+
+  message("Writing updating tree-fit")
+  tree_fit <- list(
+    tune_timestamp = tree_tuned$timestamp,
+    timestamp = Sys.time(),
+    bike_data_updated = bike_data_updated,
+    weather_data_updated = weather_data_updated,
+    bike_tree_fit = fit(tree_tuned$bike_tree_fit, bike_data)
+  )
+
+  f <- function(input, output) write_rds(input, output)
+  metadata <- gcs_upload(tree_fit, name = "tree-fit.rds",
+                         bucket = "hfx-bike-ridership-model",
+                         object_function = f)
+
+  return(TRUE)
+}
+
+#' Receive pub/sub message
+#' @post /pubsub
+#' @param message a pub/sub message
+function(message = NULL) {
+  message("Received message ", message)
+  googleCloudRunner::cr_plumber_pubsub(message, pub)
+}
+```
+
+
+:::
+:::
+
+
+## REST API
+
+```{r}
+#| eval: false
+#| code-fold: true
+#| code-summary: API code
+
+#* @apiTitle Predict bike ridership in Halifax, NS
+#* @apiDescription This API serves predictions for the daily number of bicyclists passing particular sites around Halifax, Nova Scotia. For more information, check out the [source code](https://github.com/taylordunn/hfx-bike-ridership), my [post about the data](https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/), and [my post about developing the model](https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/).
+#* @apiContact list(name = "Taylor Dunn", url = "http://www.tdunn.ca", email = "t.dunn19@gmail.com")
+#* @apiVersion 1.0
+
+library(plumber)
+library(dplyr)
+library(tidymodels)
+library(bigrquery)
+library(googleCloudStorageR)
+
+bq_auth(path = "oauth-client.json",
+        email = "hfx-bike-ridership@hfx-bike-ridership.iam.gserviceaccount.com")
+gcs_auth("oauth-client.json")
+
+project <- "hfx-bike-ridership"
+
+message("Reading data")
+daily_counts_table <- bq_table(project, "bike_counts", "daily_counts")
+bike_data <- bq_table_download(daily_counts_table)
+
+message("Loading model")
+boost_fit <- gcs_get_object("boost-fit.rds", bucket = "hfx-bike-ridership-model",
+                          parseFunction = gcs_parse_rds)
+
+site_names <- c("Dartmouth Harbourfront Greenway", "Hollis St",
+                "South Park St", "Vernon St", "Windsor St")
+
+#* @param count_date:str The date in YYYY-MM-DD format.
+#* @param site_name:[str] The location of the bike counter. One of "Dartmouth Harbourfront Greenway", "Hollis St", "South Park St", "Vernon St", "Windsor St".
+#* @param n_bikes_lag_14:[int] The number of bikes measured at the given `site_name` 14 days ago. If not provided, will attempt to impute with the actual value 14 days before `count_date`.
+#* @param mean_temperature:numeric The daily mean temperature. If not provided, will impute with the rolling mean.
+#* @param total_precipitation:numeric The daily amount of precipitation in mm. If not provided, will impute with zero.
+#* @param snow_on_ground:numeric The daily amount of snow on the ground in cm. If not provided, will impute with zero.
+#* @param speed_max_gust:numeric The daily maximum wind speed in km/h. If not provided, will impute with the mean in the training set.
+#* @get /n_bikes
+function(count_date, site_name = NA_character_, n_bikes_lag_14 = NA_integer_,
+         mean_temperature = NA_real_, total_precipitation = NA_real_,
+         snow_on_ground = NA_real_, speed_max_gust = NA_real_) {
+
+  # If not provided, use all `site_name`s
+  if (any(is.na(site_name))) {
+    site_name <- site_names
+  } else {
+    site_name <- match.arg(
+      site_name, choices = site_names, several.ok = TRUE
+    )
+  }
+
+  count_date <- as.Date(count_date)
+
+  # Get the 14-day lagged bike counts for each site
+  if (!is.na(n_bikes_lag_14) & length(site_name) != length(n_bikes_lag_14)) {
+    return(list(
+      status = 400,
+      message = "Must provide a value of `n_bikes_lag_14` for every given `site_name`."
+    ))
+  } else {
+    d <- tibble(site_name = .env$site_name, count_date = .env$count_date,
+                count_date_lag_14 = count_date - 14,
+                n_bikes_lag_14 = .env$n_bikes_lag_14)
+
+    if (sum(is.na(d$n_bikes_lag_14)) > 0) {
+      message("Imputing `n_bikes_lag_14`")
+      d <- d %>%
+        left_join(
+          bike_data %>%
+            select(site_name, count_date_lag_14 = count_date,
+                   n_bikes_lag_14_impute = n_bikes),
+          by = c("site_name", "count_date_lag_14")
+        ) %>%
+        mutate(
+          n_bikes_lag_14 = ifelse(is.na(n_bikes_lag_14),
+                                  n_bikes_lag_14_impute, n_bikes_lag_14)
+        ) %>%
+        select(-n_bikes_lag_14_impute)
+
+      if (sum(is.na(d$n_bikes_lag_14)) > 0) {
+        return(list(
+          status = 400,
+          message = paste0(
+            "Could not find `n_bikes_lag_14` values on date ", count_date,
+            " for these sites ",
+            filter(d, is.na(n_bikes_lag_14)) %>% pull(site_name) %>% paste(collapse = ", "),
+            ". Please provide your own `n_bikes_lag_14`, or choose a different `count_date`."
+          )
+        ))
+      }
+    }
+  }
+
+  # Add weather variables
+  d <- d %>%
+    mutate(
+      n_bikes_lag_14 = as.numeric(n_bikes_lag_14),
+      mean_temperature = as.numeric(mean_temperature),
+      total_precipitation = as.numeric(total_precipitation),
+      snow_on_ground = as.numeric(snow_on_ground),
+      speed_max_gust = as.numeric(speed_max_gust)
+    )
+
+  augment(boost_fit$bike_boost_fit, d)
+}
+
+#* @get /model_info
+#* @response 200 Returns model information: timestamps of when the model was last trained (`timestamp`), the model was last tuned (`tune_timestamp`), the bicycle data was last updated (`bike_data_updated`), the weather data was last updated (`weather_data_updated`).
+function() {
+  list(
+    timestamp = boost_fit$timestamp,
+    tune_timestamp = boost_fit$tune_timestamp,
+    bike_data_updated = boost_fit$bike_data_updated,
+    weather_data_updated = boost_fit$weather_data_updated
+  )
+}
+```
+
+* Containerized the API and placed on Cloud Run
+
+![](images/cloud-run.PNG)
+
+## REST API
+
+* Anyone can request predictions!
+
+. . .
+
+```{r}
+#| cache: true
+base_url <- "https://hfx-bike-ridership-api-74govvz7xq-uc.a.run.app/"
+query <- "n_bikes?count_date=2022-05-23&site_name=Hollis St"
+
+httr::GET(URLencode(paste0(base_url, query))) %>%
+  content(as = "parsed") %>%
+  purrr::flatten()
+```
+
+. . .
+
+* Or use the web interface: [https://hfx-bike-ridership-api-74govvz7xq-uc.a.run.app/__docs__/](https://hfx-bike-ridership-api-74govvz7xq-uc.a.run.app/__docs__/)
+
+## Shiny dashboard
+
+```{r}
+#| eval: false
+#| code-fold: true
+#| code-summary: App code
+library(shiny)
+library(shinydashboard)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+library(workflows)
+library(bigrquery)
+library(googleCloudStorageR)
+library(DT)
+library(dunnr)
+source("funcs.R")
+
+library(showtext)
+sysfonts::font_add_google("Roboto Condensed")
+showtext_auto()
+theme_set(theme_td(base_size = 14))
+set_geom_fonts()
+set_palette()
+
+project <- "hfx-bike-ridership"
+bq_auth(path = "oauth-client.json")
+gcs_auth("oauth-client.json")
+
+bike_counts_table <- bq_table(project, "bike_counts", "daily_counts")
+weather_table <- bq_table(project, "weather", "daily_report")
+
+server <- function(input, output, session) {
+  # Import data and model ---------------------------------------------------
+  data <- reactiveValues()
+  min_date <- reactiveVal()
+  max_date <- reactiveVal()
+  model <- reactiveVal()
+
+  observe({
+    # Re-reads data every hour
+    invalidateLater(1000 * 60 * 60)
+    message("Reading data and model")
+
+    bike_data_raw <- bq_table_download(bike_counts_table)
+    weather_data_raw <- bq_table_download(weather_table)
+    model(gcs_get_object("xgb-fit.rds",
+                         bucket = "hfx-bike-ridership-model",
+                         parseFunction = gcs_parse_rds))
+
+    bike_data <- bike_data_raw %>%
+      preprocess_bike_data() %>%
+      # Only include the last 14 days
+      filter(count_date >= max(count_date) - 13)
+    min_date(min(bike_data$count_date))
+    max_date(max(bike_data$count_date))
+    bike_data_future <- bike_data %>%
+      transmute(
+        count_date = count_date + 14, site_name, n_bikes_lag_14 = n_bikes
+      )
+
+    weather_data <- weather_data_raw %>%
+      preprocess_weather_data() %>%
+      filter(report_date >= min(bike_data$count_date),
+             report_date <= max(bike_data$count_date))
+    weather_data_future <- weather_data %>%
+      transmute(
+        report_date = report_date + 14,
+        # Impute temperature and wind speed with the mean
+        mean_temperature = round(mean(weather_data$mean_temperature,
+                                      na.rm = TRUE), 1),
+        speed_max_gust = round(mean(weather_data$speed_max_gust,
+                                    na.rm = TRUE)),
+        # Impute precipitation and snow with zero
+        total_precipitation = 0, snow_on_ground = 0
+      )
+
+    data$bike <- bind_rows(bike_data, bike_data_future)
+    data$weather <- bind_rows(weather_data, weather_data_future)
+  })
+
+  bike_weather_data <- reactive({
+    data$bike %>%
+      left_join(data$weather, by = c("count_date" = "report_date"))
+  })
+
+  # Model info --------------------------------------------------------------
+  output$model_info_1 <- renderText({
+    HTML(
+      paste(
+        "This Shiny app visualizes predictions of the daily number of bicyclists passing various bike counter sites around Halifax, Nova Scotia, in a four-week window.",
+        "Check out the <a href='https://github.com/taylordunn/hfx-bike-ridership'>source code here</a>, and <a href='https://tdunn.ca/posts/2022-05-19-predicting-bike-ridership-deploying-the-model/'>this write-up</a> for more information.",
+        paste0("<br>Data are updated, and the model is re-trained on a schedule: currently every Sunday at midnight AST, and sometimes manually by me. ",
+               "The current data go up to ",
+               "<b>", max_date(), "</b>",
+               " as indicated by the vertical dashed line in the plots."),
+        "<br>The locations of the sites are overlaid on a map of Halifax below:",
+        sep = "<br>"
+      )
+    )
+  })
+
+  output$model_info_2 <- renderText({
+    HTML(
+      paste(
+        "<br>",
+        "In addition to site, other features of the model are:",
+        paste0("<ul>",
+               "<li>date features: day of week, day of year, year, and Canadian holidays</li>",
+               "<li>the number of bikes counted 14 days ago</li>",
+               "<li>weather features: daily mean temperature, total precipitation, maximum gust speed, and snow on the ground",
+               "</ul>"),
+        "See more information about the features and how missing data are handled <a href='https://tdunn.ca/posts/2022-04-29-predicting-bike-ridership-developing-a-model/'>in this post</a>.",
+        "<br>"
+      )
+    )
+  })
+
+  # Plotting helpers --------------------------------------------------------
+  scale_x <- reactive({
+    scale_x_date(NULL, limits = c(min_date() - 1, max_date() + 14),
+                 breaks = seq.Date(min_date() - 1, max_date() + 14, "7 days"),
+                 date_labels = "%b %d")
+  })
+  vline <- reactive({
+    geom_vline(xintercept = max_date(), lty = 2, size = 1)
+  })
+
+  # Bike predictions --------------------------------------------------------
+  output$n_bikes_plot <- renderPlot({
+    workflows:::augment.workflow(model()$bike_xgb_fit,
+                                 bike_weather_data()) %>%
+      ggplot(aes(x = count_date)) +
+      vline() +
+      geom_line(aes(y = .pred), color = "black", size = 1) +
+      geom_point(aes(y = n_bikes, fill = site_name),
+                 color = "black", shape = 21, size = 4) +
+      facet_wrap(~ site_name, ncol = 1) +
+      expand_limits(y = 0) +
+      labs(y = NULL) +
+      scale_x() +
+      labs(title = "Number of bikes vs date",
+           subtitle = "Coloured points show actual values, black lines are predictions") +
+      theme(legend.position = "none") +
+      dunnr::add_facet_borders()
+  })
+
+  # Weather data ------------------------------------------------------------
+  temperature_plot <- reactive({
+    data$weather %>%
+      filter(!is.na(mean_temperature)) %>%
+      mutate(var = "Mean daily temperature (celsius)") %>%
+      ggplot(aes(x = report_date, y = mean_temperature)) +
+      vline() +
+      geom_point(fill = td_colors$nice$strong_red, shape = 21, size = 4) +
+      facet_wrap(~ var) +
+      labs(y = NULL,
+           title = "Weather vs date",
+           subtitle = "Use the table below to edit values for prediction") +
+      scale_x() +
+      theme(axis.text.x = element_blank()) +
+      dunnr::add_facet_borders()
+  })
+  precipitation_plot <- reactive({
+    data$weather %>%
+      filter(!is.na(total_precipitation)) %>%
+      mutate(var = "Total daily precipitation (mm)") %>%
+      ggplot(aes(x = report_date, y = total_precipitation)) +
+      vline() +
+      geom_col(fill = td_colors$nice$spanish_blue, color = "black") +
+      facet_wrap(~ var) +
+      expand_limits(y = 5) +
+      scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
+      scale_x() +
+      theme(axis.text.x = element_blank()) +
+      dunnr::add_facet_borders()
+  })
+
+  snow_plot <- reactive({
+    data$weather %>%
+      filter(!is.na(snow_on_ground)) %>%
+      mutate(var = "Snow on ground (cm)") %>%
+      ggplot(aes(x = report_date, y = snow_on_ground)) +
+      vline() +
+      geom_col(fill = td_colors$nice$charcoal, color = "black") +
+      facet_wrap(~ var) +
+      expand_limits(y = 5) +
+      scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
+      scale_x() +
+      theme(axis.text.x = element_blank()) +
+      dunnr::add_facet_borders()
+  })
+  wind_plot <- reactive({
+    data$weather %>%
+      filter(!is.na(speed_max_gust)) %>%
+      mutate(var = "Maximum wind gust (km/h)") %>%
+      ggplot(aes(x = report_date, y = speed_max_gust)) +
+      vline() +
+      geom_point(fill = td_colors$nice$emerald, shape = 21, size = 4) +
+      facet_wrap(~ var) +
+      labs(y = NULL) +
+      scale_x()
+  })
+
+  output$weather_plot <- renderPlot({
+    temperature_plot() +
+      precipitation_plot() +
+      snow_plot() +
+      wind_plot() +
+      plot_layout(ncol = 1)
+  })
+
+  output$weather_table <- renderDataTable(
+    datatable(
+      data$weather,
+      rownames = FALSE, escape = FALSE,
+      colnames = c("Date", "Temp.", "Precip.", "Snow", "Wind"),
+      editable = list(target = "cell", numeric = c(2, 3, 4, 5)),
+      options = list(pageLength = 7, dom = "tp"),
+      caption = "Double click a cell to edit values. Plots and predictions will update automatically."
+    ) %>%
+      DT::formatStyle(names(data$weather), lineHeight = "80%")
+  )
+
+  observeEvent(input$weather_table_cell_edit, {
+    row <- input$weather_table_cell_edit$row
+    col <- input$weather_table_cell_edit$col
+    data$weather[row, col + 1] <- input$weather_table_cell_edit$value
+  })
+}
+
+ui <- dashboardPage(
+  skin = "yellow",
+  dashboardHeader(title = "Predicting bike ridership in Halifax, NS",
+                  titleWidth = 500),
+  dashboardSidebar(disable = TRUE),
+  dashboardBody(
+    tags$head(
+      tags$link(rel = "stylesheet", type = "text/css", href = "custom.css")
+    ),
+    fluidRow(
+    column(
+      width = 3,
+      box(
+        title = HTML(paste0(as.character(icon("info")), " <b>Info</b>")),
+        width = 12,
+        style = "overflow-x: scroll;",
+        uiOutput("model_info_1"),
+        img(src = "bike-counter-sites.png",
+            style = "width: 300px; display: block; margin-left: auto; margin-right: auto;"),
+        uiOutput("model_info_2")
+      )
+    ),
+    column(
+      width = 5,
+      box(
+        width = 12,
+        style = "overflow-x: scroll;",
+        plotOutput("n_bikes_plot", height = "800px")
+      )
+    ),
+    column(
+      width = 4,
+      box(
+        width = 12,
+        style = "overflow-x: scroll;",
+        plotOutput("weather_plot", height = "600px"),
+        dataTableOutput("weather_table")
+      )
+    )
+  )
+  )
+)
+
+shinyApp(ui, server)
+```
+
+* Also publicly available: [https://hfx-bike-ridership-app-74govvz7xq-uc.a.run.app/](https://hfx-bike-ridership-app-74govvz7xq-uc.a.run.app/)
+
+# Conclusions
+
+## Conclusions
+
+::: {.incremental}
+
+1. Retrieved bicycle counter data from the city of Halifax
+2. Retrieved historical weather data from the government of Canada
+3. Prepared data for modeling
+4. Fit and evaluated many machine learning models
+5. Deployed the full pipeline on GCP
+    * ETL on a schedule
+    * Automatic model fitting
+    * REST API
+    * Shiny app
+
+:::
+
+::: columns
+
+::: {.column width="60%"}
+::: {.incremental}
+
+* Take-aways:
+    * Data you care about is a *great* way to learn data science
+    * EDA and feature engineering are 80% of the work
+    * Missing data is hard
+
+:::
+:::
+
+::: {.column width="40%"}
+::: {.incremental}
+
+* Some idea for the future:
+    * Data monitoring
+    * Model monitoring
+    * Integrate weather forecasts into predictions
+
+:::
+:::
+    
+:::
+
+# Thank you!
+
+
+## Extra slides {visibility="uncounted"}
