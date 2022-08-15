@@ -3085,7 +3085,7 @@ estimate
 rmse
 </td>
 <td style="text-align:right;">
-43.2400
+42.9400
 </td>
 </tr>
 <tr>
@@ -3093,7 +3093,7 @@ rmse
 mase
 </td>
 <td style="text-align:right;">
-0.7254
+0.7034
 </td>
 </tr>
 </tbody>
@@ -3141,7 +3141,7 @@ mase
 <div class="sourceCode cell-code" id="cb69"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1"></a>p <span class="ot">&lt;-</span> boost_tree_preds <span class="sc">%&gt;%</span></span>
 <span id="cb69-2"><a href="#cb69-2"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> count_date)) <span class="sc">+</span></span>
 <span id="cb69-3"><a href="#cb69-3"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> n_bikes, <span class="at">color =</span> site_name), <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb69-4"><a href="#cb69-4"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> .pred), <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb69-4"><a href="#cb69-4"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> .pred), <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
 <span id="cb69-5"><a href="#cb69-5"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">min</span>(bike_test<span class="sc">$</span>count_date), <span class="at">lty =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
 <span id="cb69-6"><a href="#cb69-6"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> site_name, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
 <span id="cb69-7"><a href="#cb69-7"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
@@ -3170,7 +3170,7 @@ mase
 <section id="exploring-the-predictions-3" class="slide level2">
 <h2>Exploring the predictions</h2>
 <ul>
-<li>Zeros on Vernon St?</li>
+<li>Zeroes on Vernon St?</li>
 </ul>
 <div>
 <details>
@@ -3218,7 +3218,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-104.2
+83.8
 </td>
 </tr>
 <tr>
@@ -3229,7 +3229,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-148.5
+137.8
 </td>
 </tr>
 <tr>
@@ -3240,7 +3240,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-111.2
+138.2
 </td>
 </tr>
 <tr>
@@ -3251,7 +3251,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-258.9
+258.0
 </td>
 </tr>
 <tr>
@@ -3262,7 +3262,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-256.5
+254.8
 </td>
 </tr>
 <tr>
@@ -3273,7 +3273,7 @@ n_bikes
 0
 </td>
 <td style="text-align:right;">
-157.8
+193.1
 </td>
 </tr>
 </tbody>
@@ -3288,7 +3288,7 @@ n_bikes
 <section id="exploring-the-predictions-4" class="slide level2">
 <h2>Exploring the predictions</h2>
 <ul>
-<li>Home for Christmas?</li>
+<li>Home for Christmas 2021?</li>
 </ul>
 <div class="cell" data-layout-align="center">
 <details>
@@ -3327,7 +3327,7 @@ n_bikes
 <section id="exploring-the-predictions-5" class="slide level2">
 <h2>Exploring the predictions</h2>
 <ul>
-<li>A period of poor predictions?</li>
+<li>Big outliers in November 2021?</li>
 </ul>
 <div class="columns">
 <div class="column" style="width:50%;">
@@ -3466,10 +3466,10 @@ Dartmouth Harbourfront Greenway
 30
 </td>
 <td style="text-align:right;">
-120.0
+122.9
 </td>
 <td style="text-align:right;">
-35.2
+44.2
 </td>
 </tr>
 <tr>
@@ -3480,10 +3480,10 @@ Hollis St
 19
 </td>
 <td style="text-align:right;">
-84.8
+76.2
 </td>
 <td style="text-align:right;">
-9.1
+8.7
 </td>
 </tr>
 <tr>
@@ -3494,10 +3494,10 @@ South Park St
 59
 </td>
 <td style="text-align:right;">
-315.4
+321.4
 </td>
 <td style="text-align:right;">
-161.7
+194.3
 </td>
 </tr>
 <tr>
@@ -3508,10 +3508,10 @@ Vernon St
 133
 </td>
 <td style="text-align:right;">
-171.7
+163.2
 </td>
 <td style="text-align:right;">
-82.1
+84.4
 </td>
 </tr>
 <tr>
@@ -3522,10 +3522,10 @@ Windsor St
 26
 </td>
 <td style="text-align:right;">
-90.0
+88.2
 </td>
 <td style="text-align:right;">
-8.8
+18.1
 </td>
 </tr>
 </tbody>

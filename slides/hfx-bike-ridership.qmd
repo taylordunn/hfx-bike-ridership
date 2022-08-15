@@ -1884,7 +1884,7 @@ boost_tree_preds %>%
 p <- boost_tree_preds %>%
   ggplot(aes(x = count_date)) +
   geom_line(aes(y = n_bikes, color = site_name), size = 1) +
-  geom_line(aes(y = .pred), color = "black") +
+  geom_line(aes(y = .pred), color = "black", size = 1) +
   geom_vline(xintercept = min(bike_test$count_date), lty = 2) +
   facet_wrap(~ site_name, ncol = 2, scales = "free_y") +
   theme(legend.position = "none") +
@@ -1907,7 +1907,7 @@ p + coord_cartesian(xlim = as.Date(c("2021-07-01", "2022-05-01")))
 
 ## Exploring the predictions
 
-* Zeros on Vernon St?
+* Zeroes on Vernon St?
 
 ```{r}
 #| layout-ncol: 2
@@ -1925,7 +1925,7 @@ boost_tree_preds %>%
 
 ## Exploring the predictions
 
-* Home for Christmas?
+* Home for Christmas 2021?
 
 ```{r}
 #| code-fold: true
@@ -1944,7 +1944,7 @@ p %+% filter(boost_tree_preds,
 
 ## Exploring the predictions
 
-* A period of poor predictions?
+* Big outliers in November 2021?
 
 ::: {.columns}
 ::: {.column width="50%"}
