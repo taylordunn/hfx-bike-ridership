@@ -62,10 +62,10 @@
     },
     "MASS": {
       "Package": "MASS",
-      "Version": "7.3-57",
+      "Version": "7.3-65",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "71476c1d88d1ebdf31580e5a257d5d31",
+      "Hash": "a41d0fc833ea756a1136b60a437efe26",
       "Requirements": []
     },
     "Matrix": {
