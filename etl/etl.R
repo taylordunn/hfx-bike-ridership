@@ -62,17 +62,18 @@ message("Max bike counter date: ", max(bike_counts_daily$count_date))
 # See write-up here: https://tdunn.ca/posts/2022-04-27-predicting-bike-ridership-getting-the-data/#getting-weather-data
 
 weather_base_url <-
-  "https://api.weather.gc.ca/collections/climate-daily/items?f=json&lang=en-CA"
+  "https://api.weather.gc.ca/collections/climate-daily/items?f=json&lang=en-CA&offset=0"
 get_daily_climate_report_year <- function(
   station_name, local_year, limit = 10000
 ) {
   weather_query <- paste(
     c(weather_base_url,
       paste0("limit=", limit),
-      paste0("STATION_NAME=", URLencode(station_name)),
-      paste0("LOCAL_YEAR=", local_year)),
+      paste0("LOCAL_YEAR=", local_year),
+      paste0("STATION_NAME=", URLencode(station_name))),
     collapse = "&"
   )
+  message("Downloading weather data for station ", station_name, " and year ", local_year, ": ", weather_query)
   content_parsed <- GET(weather_query) %>% content(as = "parsed")
 
   map_dfr(

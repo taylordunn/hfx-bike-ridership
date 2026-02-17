@@ -7,8 +7,8 @@ library(googleCloudRunner)
 library(plumber)
 source("preprocess.R")
 
-bq_auth(path = "oauth-client.json")
-gcs_auth("oauth-client.json")
+#bq_auth(path = "oauth-client.json")
+gcs_auth("service-account-key.json")
 gcs_upload_set_limit(20000000L) # 20 Mb
 
 # This function will retrieve the latest data from BigQuery, the trained
@@ -44,8 +44,15 @@ pub <- function(message) {
     bike_xgb_fit = fit(xgb_tuned$bike_xgb_fit, bike_data)
   )
 
+  # Using read/write_rds causes comptability issues with the XGB model object...
   f <- function(input, output) write_rds(input, output)
-  metadata <- gcs_upload(xgb_fit, name = "xgb-fit.rds",
+  metadata <- gcs_upload(xgb_fit, name = "xgb-fit.ubj",
+                         bucket = "hfx-bike-ridership-model",
+                         object_function = f)
+  # So also save it separately using xgboost's native save function
+  f <- function(input, output) xgboost::xgb.save(input, output)
+  m <- parsnip::extract_fit_engine(xgb_fit$bike_xgb_fit)
+  metadata <- gcs_upload(m, name = "xgb-fit.ubj",
                          bucket = "hfx-bike-ridership-model",
                          object_function = f)
 

@@ -1,4 +1,4 @@
-FROM rocker/shiny:4.2.0
+FROM rocker/shiny:4.4.2
 
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
   git \
@@ -10,19 +10,20 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
   make
 
 RUN R -e "install.packages(c('shinydashboard', 'dplyr', 'readr', 'tidyr', \
-  'ggplot2', 'patchwork', 'workflows', 'recipes', 'xgboost', \
+  'ggplot2', 'patchwork', 'broom', 'workflows', 'recipes', 'xgboost', \
   'bigrquery', 'googleCloudStorageR', \
-  'DT', 'remotes', 'showtext', 'showtextdb'), \
-  repos = 'https://packagemanager.rstudio.com/cran/__linux__/focal/2022-05-26')"
+  'DT', 'remotes', 'showtext', 'showtextdb'))"
 
 RUN R -e "remotes::install_github('taylordunn/dunnr')"
 
-COPY app/shiny-custom.config /etc/shiny-server/shiny-server.conf
+COPY shiny-custom.config /etc/shiny-server/shiny-server.conf
 COPY oauth-client.json /srv/shiny-server/
-COPY app/app.R /srv/shiny-server/
-COPY app/funcs.R /srv/shiny-server/
-COPY app/www/ /srv/shiny-server/www/
-COPY app/fonts/ /srv/shiny-server/fonts/
+COPY service-account-key.json /srv/shiny-server/
+COPY app.R /srv/shiny-server/
+COPY funcs.R /srv/shiny-server/
+COPY www/ /srv/shiny-server/www/
+
+RUN chown shiny:shiny /var/lib/shiny-server
 
 EXPOSE 3838
 

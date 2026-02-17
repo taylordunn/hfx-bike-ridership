@@ -139,6 +139,7 @@ xgb_tune <- tune_grid(
   grid = xgb_grid, metrics = bike_metrics
 )
 toc()
+# ~64 minutes
 
 # Choose the hyperparameters by MASE
 xgb_params <- select_best(xgb_tune, metric = "mase")
@@ -175,9 +176,12 @@ model_tuned <- list(
 
 # Model object
 write_rds(model_tuned, "model/tune/xgb-model-tuned.rds")
+model_tuned <- read_rds("model/tune/xgb-model-tuned.rds")
 gcs_upload_set_limit(20000000L) # 20 Mb
 # This works, but also returns an error from GCP about bucket-level access
 # See: https://github.com/cloudyr/googleCloudStorageR/issues/121
+# Update 2026-02-16: I kept getting errors about authorization with the client ID so I manually uploaded instead
+# GCP -> Cloud Storage -> Buckets -> hfx-bike-ridership-model -> Upload (overwrite)
 metadata <- gcs_upload("model/tune/xgb-model-tuned.rds",
                        name = "tune/xgb-model-tuned.rds",
                        bucket = "hfx-bike-ridership-model")

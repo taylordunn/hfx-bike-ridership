@@ -6,6 +6,7 @@ library(tidyr)
 library(ggplot2)
 library(patchwork)
 library(workflows)
+library(recipes)
 library(bigrquery)
 library(googleCloudStorageR)
 library(DT)
@@ -24,18 +25,37 @@ set_palette()
 # options(shiny.usecairo = TRUE)
 
 project <- "hfx-bike-ridership"
-bq_auth(path = "oauth-client.json")
-gcs_auth("oauth-client.json")
+#bq_auth(path = "oauth-client.json")
+bq_auth(path = "service-account-key.json")
+gcs_auth("service-account-key.json")
 
 bike_counts_table <- bq_table(project, "bike_counts", "daily_counts")
 weather_table <- bq_table(project, "weather", "daily_report")
+
+# Due to issue with xgboost model objects and reading/writing them (with different package versions)
+# I can no longer reliably extract the fit object
+# So, instead, I'll read in the tuned model object, and fit on the data during app startup
+xgb_tuned <- gcs_get_object(
+  "tune/xgb-model-tuned.rds",
+  bucket = "hfx-bike-ridership-model",
+  parseFunction = gcs_parse_rds
+)
+bike_data_raw <- bq_table_download(bike_counts_table)
+weather_data_raw <- bq_table_download(weather_table)
+message("Fitting model")
+xgb_tuned <- gcs_get_object(
+"tune/xgb-model-tuned.rds",
+  bucket = "hfx-bike-ridership-model",
+  parseFunction = gcs_parse_rds
+)
+model <- parsnip::fit(xgb_tuned$bike_xgb_fit, preprocess(bike_data_raw, weather_data_raw))
+
 
 server <- function(input, output, session) {
   # Import data and model ---------------------------------------------------
   data <- reactiveValues()
   min_date <- reactiveVal()
   max_date <- reactiveVal()
-  model <- reactiveVal()
 
   observe({
     # Re-reads data every hour
@@ -44,9 +64,10 @@ server <- function(input, output, session) {
 
     bike_data_raw <- bq_table_download(bike_counts_table)
     weather_data_raw <- bq_table_download(weather_table)
-    model(gcs_get_object("xgb-fit.rds",
-                         bucket = "hfx-bike-ridership-model",
-                         parseFunction = gcs_parse_rds))
+  # This no longer works due to issues with XGB object and mismatched packjage versions
+    # model(gcs_get_object("xgb-fit.rds",
+    #                      bucket = "hfx-bike-ridership-model",
+    #                      parseFunction = gcs_parse_rds))
 
     bike_data <- bike_data_raw %>%
       preprocess_bike_data() %>%
@@ -104,6 +125,8 @@ server <- function(input, output, session) {
     HTML(
       paste(
         "<br>",
+        "(Note: Vernon St data is no longer available since 2025.)",
+        "<br>",
         "In addition to site, other features of the model are:",
         paste0("<ul>",
                "<li>date features: day of week, day of year, year, and Canadian holidays</li>",
@@ -128,8 +151,8 @@ server <- function(input, output, session) {
 
   # Bike predictions --------------------------------------------------------
   output$n_bikes_plot <- renderPlot({
-    workflows:::augment.workflow(model()$bike_xgb_fit,
-                                 bike_weather_data()) %>%
+    #workflows:::augment.workflow(model$bike_xgb_fit,
+    broom::augment(model, bike_weather_data()) %>%
       ggplot(aes(x = count_date)) +
       vline() +
       geom_line(aes(y = .pred), color = "black", size = 1) +
